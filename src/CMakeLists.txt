@@ -5,6 +5,7 @@ endif()
 add_subdirectory(kconfig_compiler)
 add_subdirectory(kconf_update)
 add_subdirectory(kreadconfig)
+add_subdirectory(kconfig_bench)
 
 ecm_qt_install_logging_categories(
     EXPORT KCONFIG

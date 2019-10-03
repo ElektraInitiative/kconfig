@@ -1,6 +1,5 @@
 # Ignore the following files
 *~
-*.[oa]
 *.diff
 *.kate-swp
 *.kdev4
@@ -13,10 +12,13 @@
 .*.swp
 .swp.*
 Doxyfile
-Makefile
 avail
 random_seed
 /build*/
 CMakeLists.txt.user*
 *.unc-backup*
 .cmake/
+/cmake-build-debug/
+.idea/
+cmake-build-debug/src/kreadcon
+fig/CTestTestfile.cmake
