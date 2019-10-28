@@ -639,6 +639,9 @@ void KConfig::reparseConfiguration()
     if (d->fileName.isEmpty()) {
         return;
     }
+#ifdef ELEKTRA
+    qDebug() << "linked with Elektra";
+#endif //ELEKTRA
 
     // Don't lose pending changes
     if (!d->isReadOnly() && d->bDirty) {

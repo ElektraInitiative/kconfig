@@ -7,10 +7,12 @@
 #include <iostream>
 #include <random>
 
+#define KEYS 100
+
 void serialAccess(KConfig* config) {
     KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
 
-    for(int i = 0; i < 1000; i++) {
+    for(int i = 0; i < KEYS; i++) {
         QString name = QString::fromStdString("key.");
         name.append(QString::number(i));
 
@@ -22,17 +24,18 @@ void serialAccess(KConfig* config) {
 void randomAccess(KConfig* config) {
     KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
     std::vector<int> indices;
-    indices.reserve(1000);
+    indices.reserve(KEYS);
 
-    for(int i = 0; i < 1000; i++) {
+    for(int i = 0; i < KEYS; i++) {
         indices.push_back(i);
     }
 
-    std::shuffle(indices.begin(), indices.end(), std::mt19937(std::random_device()()));
+    auto rng = std::mt19937(std::random_device()());
+    std::uniform_int_distribution<int> rdist(0, KEYS);
 
     for(auto i = indices.begin(); i < indices.end(); i++) {
         QString name = QString::fromStdString("key.");
-        int j = *i.base();
+        int j = rdist(rng);
 
         name.append(QString::number(j));
 
@@ -44,25 +47,50 @@ void randomAccess(KConfig* config) {
     }
 }
 
+void deleteKeys(KConfig * config, int keys) {
+    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+
+    for (int j = 0; j < keys; ++j) {
+        QString name = QString::fromStdString("key.");
+        name.append(QString::number(j));
+        longGroup.deleteEntry(name);
+    }
+}
+
+void writeKeys(KConfig * config) {
+    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+
+    for(int i = 0; i < KEYS; i++) {
+        QString name = QString::fromStdString("key.");
+        name.append(QString::number(i));
+        longGroup.writeEntry(name, i % 17 * 4);
+    }
+}
+
 int main() {
     KConfig config(QString::fromStdString("/home/felix/CLionProjects/kconfig/test/kconfig_bench_testrc"));
 
+    std::cout << "Parsing...";
+
     KConfigGroup test = config.group("Test");
 
-    if (test.hasKey("test")) {
-        std::cout << "Ready for testing!" << std::endl;
+    if (test.hasKey("keys") && test.readEntry("keys").toInt() == KEYS) {
+        std::cout << "Testing...";
 
         serialAccess(&config);
         randomAccess(&config);
+
+        std::cout << "Done!" << std::endl;
     } else {
+        int keys = test.readEntry("keys").toInt();
+
         test.writeEntry("test", "test");
+        test.writeEntry("keys", KEYS);
         KConfigGroup longGroup = config.group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
 
-        for(int i = 0; i < 1000; i++) {
-            QString name = QString::fromStdString("key.");
-            name.append(QString::number(i));
-            longGroup.writeEntry(name, i % 17 * 4);
-        }
+        deleteKeys(&config, keys);
+
+        writeKeys(&config);
 
         config.sync();
 
