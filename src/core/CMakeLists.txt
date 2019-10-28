@@ -51,6 +51,16 @@ if(WIN32)
     target_link_libraries(KF5ConfigCore PRIVATE ${KDEWIN_LIBRARIES})
 endif()
 
+find_package(Elektra)
+
+if (ELEKTRA_FOUND)
+    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
+    include_directories($(ELEKTRA_INCLUDE_DIR))
+
+    target_link_libraries(KF5ConfigCore PRIVATE ${ELEKTRA_LIBRARIES})
+    add_definitions(-DFEAT_ELEKTRA)
+endif (ELEKTRA_FOUND)
+
 set_target_properties(KF5ConfigCore PROPERTIES VERSION   ${KCONFIG_VERSION_STRING}
                                                SOVERSION ${KCONFIG_SOVERSION}
                                                EXPORT_NAME ConfigCore
