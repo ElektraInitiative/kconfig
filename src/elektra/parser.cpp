@@ -4,9 +4,6 @@
 
 #define KCONFIG_METADATA_KEY "kconfig"
 
-// WIP: The code below was used for testing purposes
-#include <iostream>
-
 bool skip_if_closing_bracket(FileInputIterator &iterator) {
     if (iterator.next_val_type() != KCIniToken::CLOSE_BRACKET) {
         return false;
@@ -65,12 +62,11 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
     }
 
     std::string keyname = iterator.get_in_line_until_char('=', '[');
-
-    Key key{parent.getName()};
-    key.addBaseName(keyname);
+    Key key{parent.dup()};
 
     if (iterator.is_end_or_newline_next()) {
         // Key only.
+        key.addBaseName(keyname);
         return key;
     }
 
@@ -88,9 +84,7 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
             } else {
                 has_locale = true;
             }
-//            maybe change the following to:
-//            keyname += '[' + iterator.read_in_line_until_char (key, ']') + ']';
-            key.addBaseName('[' + iterator.get_in_line_until_char(']') + ']');
+            keyname += '[' + iterator.get_in_line_until_char(']') + ']';
         }
 
         if (iterator.next_val_type() != KCIniToken::CLOSE_BRACKET) {
@@ -100,6 +94,8 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
         iterator.skip_char();
     }
 
+
+    key.addBaseName(keyname);
     // Skip empty spaces if any
     iterator.skip_blank_chars();
     if (iterator.next_val_type() == KCIniToken::EQUALS_SIGN) {
@@ -113,6 +109,10 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
         return parent;
     }
     iterator.skip_char();
+
+    if (meta != "") {
+        key.setMeta(KCONFIG_METADATA_KEY, meta);
+    }
 
     return key;
 }
@@ -152,6 +152,8 @@ KeySet get_key(FileInputIterator &iterator, const Key &parent) {
 }
 
 // WIP: The code below was used for testing purposes
+#include <iostream>
+
 int main(int argc, char **argv) {
     std::string filename;
     if (argc == 2) {
@@ -161,7 +163,7 @@ int main(int argc, char **argv) {
     }
     FileInputIterator config_file{filename};
     Key parent{"/sw/MyApp"};
-    if (!config_file.next_val_type() != KCIniToken::END_FILE) {
+    if (config_file.next_val_type() == KCIniToken::END_FILE) {
         std::cout << "Problems parsing the file or it is empty" << std::endl;
         return 1;
     }
@@ -169,7 +171,7 @@ int main(int argc, char **argv) {
     KeySet keySet = get_key(config_file, parent);
 
     for (const Key &k : keySet) {
-        std::cout << k << std::endl;
+        std::cout << k.getName() << std::endl;
         std::cout << "\tValue: " << k.getString() << std::endl;
         std::string metadata = k.getMeta<std::string>(KCONFIG_METADATA_KEY);
         std::cout << "\tMeta: " << metadata << std::endl;
