@@ -1,0 +1,3 @@
+/home/dardan/git/kconfig/src/elektra/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/dardan/git/kconfig/src/elektra/cmake-build-debug/CMakeFiles/elektra-kconfig.dir
+/home/dardan/git/kconfig/src/elektra/cmake-build-debug/CMakeFiles/edit_cache.dir

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="Project"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\usr\;CMake Files\..\..\..\..\..\..\usr\local\;CMake Files\..\..\..\..\..\..\usr\local\lib\;CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\;CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\Elektra\;CMake Files\..\..\..\..\..\..\usr\lib64\;CMake Files\..\..\..\..\..\..\usr\lib64\cmake\;CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5\;CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/home/dardan/git/kconfig/src/elektra/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/home/dardan/git/kconfig/src/elektra/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="elektra-kconfig">
+				<Option output="/home/dardan/git/kconfig/src/elektra/cmake-build-debug/libelektra-kconfig.so" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/dardan/git/kconfig/src/elektra/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="3"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DQT_CORE_LIB"/>
+					<Add directory="/home/dardan/git/kconfig/src/elektra/."/>
+					<Add directory="/usr/local/include/elektra"/>
+					<Add directory="/usr/include/qt"/>
+					<Add directory="/usr/include/qt/QtCore"/>
+					<Add directory="/usr/lib/qt/mkspecs/linux-g++"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 elektra-kconfig"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="elektra-kconfig/fast">
+				<Option output="/home/dardan/git/kconfig/src/elektra/cmake-build-debug/libelektra-kconfig.so" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/dardan/git/kconfig/src/elektra/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="3"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DQT_CORE_LIB"/>
+					<Add directory="/home/dardan/git/kconfig/src/elektra/."/>
+					<Add directory="/usr/local/include/elektra"/>
+					<Add directory="/usr/include/qt"/>
+					<Add directory="/usr/include/qt/QtCore"/>
+					<Add directory="/usr/lib/qt/mkspecs/linux-g++"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/../../../../include/c++/9.2.0/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/9.2.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 elektra-kconfig/fast"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/home/dardan/git/kconfig/src/elektra/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j4 -f &quot;/home/dardan/git/kconfig/src/elektra/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/kconfig.cpp">
+			<Option target="elektra-kconfig"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/kconfig.hpp">
+			<Option target="elektra-kconfig"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/kconfig_delegate.cpp">
+			<Option target="elektra-kconfig"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/kconfig_delegate.hpp">
+			<Option target="elektra-kconfig"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/local/lib/cmake/Elektra/ElektraConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\Elektra\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/local/lib/cmake/Elektra/ElektraConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\Elektra\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/local/lib/cmake/Elektra/ElektraTargetsLibelektra-relwithdebinfo.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\Elektra\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/local/lib/cmake/Elektra/ElektraTargetsLibelektra.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\local\lib\cmake\Elektra\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5/Qt5Config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5/Qt5ConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5/Qt5ModuleLocation.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5Core/Qt5CoreConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5Core/Qt5CoreConfigExtras.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5Core/Qt5CoreConfigExtrasMkspecDir.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5Core/Qt5CoreConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\"/>
+		</Unit>
+		<Unit filename="/home/dardan/git/kconfig/src/elektra/../../../../../../usr/lib64/cmake/Qt5Core/Qt5CoreMacros.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\usr\lib64\cmake\Qt5Core\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

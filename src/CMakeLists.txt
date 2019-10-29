@@ -1,4 +1,5 @@
 add_subdirectory(core)
+add_subdirectory(elektra)
 if(TARGET Qt5::Gui)
     add_subdirectory(gui)
 endif()
