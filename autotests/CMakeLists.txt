@@ -50,6 +50,28 @@ ecm_add_tests(
    LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent
 )
 
+find_package(Elektra)
+
+if (ELEKTRA_FOUND)
+    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
+    include_directories(${ELEKTRA_INCLUDE_DIR})
+
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+
+    ecm_add_test(
+            kconfigelektratest.cpp
+            ../src/core/kconfigelektra.cpp
+            ../src/core/kconfigdata.cpp
+            ../src/core/kconfigbackend.cpp
+            ../src/core/kconfigini.cpp
+            ../cmake-build-debug/src/core/kconfig_core_log_settings.cpp
+            TEST_NAME kconfigelektra
+            NAME_PREFIX kconfigcore-
+            LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent ${ELEKTRA_LIBRARIES}
+    )
+    add_definitions(-DFEAT_ELEKTRA)
+endif (ELEKTRA_FOUND)
+
 target_include_directories(test_kconf_update PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../src/kconf_update)
 
 if(TARGET Qt5::Gui)
