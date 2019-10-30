@@ -1956,8 +1956,8 @@ int main(int argc, char **argv)
         }
 
         if (cfg.generateProperties) {
-            h << "    Q_PROPERTY(" << returnType << ' ' << n;
-            h << " READ " << n;
+            h << "    Q_PROPERTY(" << returnType << ' ' << getFunction(n);
+            h << " READ " << getFunction(n);
             if (cfg.allMutators || cfg.mutators.contains(n)) {
                 const QString signal = changeSignalName(n);
                 h << " WRITE " << setFunction(n);
@@ -2330,7 +2330,7 @@ int main(int argc, char **argv)
         cpp << "}" << endl << endl;
 
         if (cfgFileNameArg) {
-            auto instance = [&cfg, &cpp] (const QString &type, const QString arg, bool wrap) {
+            auto instance = [&cfg, &cpp] (const QString &type, const QString &arg, bool wrap) {
                 cpp << "void " << cfg.className << "::instance(" << type << " " << arg << ")" << endl;
                 cpp << "{" << endl;
                 cpp << "  if (s_global" << cfg.className << "()->q) {" << endl;
