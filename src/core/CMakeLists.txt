@@ -11,7 +11,7 @@ set(libkconfigcore_SRCS
    kauthorized.cpp
    kemailsettings.cpp
    kconfigwatcher.cpp
-)
+        kconfigelektra.cpp kconfigelektra.h)
 
 ecm_qt_declare_logging_category(libkconfigcore_SRCS
     HEADER kconfig_core_log_settings.h
@@ -55,7 +55,11 @@ find_package(Elektra)
 
 if (ELEKTRA_FOUND)
     message(STATUS "Elektra ${ELEKTRA_VERSION} found")
-    include_directories($(ELEKTRA_INCLUDE_DIR))
+    include_directories(${ELEKTRA_INCLUDE_DIR})
+
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+
+    message(STATUS "Linking against ${ElektraHighlevel_LIBRARIES}")
 
     target_link_libraries(KF5ConfigCore PRIVATE ${ELEKTRA_LIBRARIES})
     add_definitions(-DFEAT_ELEKTRA)
