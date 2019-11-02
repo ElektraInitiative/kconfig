@@ -42,6 +42,10 @@ public:
 
     void changeFileName(const QString &fileName);
 
+#ifdef FEAT_ELEKTRA
+    void useElektraInfo(const ElektraInfo& elektraInfo);
+#endif
+
     // functions for KConfigGroup
     bool canWriteEntry(const QByteArray &group, const char *key, bool isDefault = false) const;
     QString lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags,

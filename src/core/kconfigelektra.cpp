@@ -2,6 +2,7 @@
 // Created by felix on 28.10.19.
 //
 
+#ifdef FEAT_ELEKTRA
 #include "kconfigelektra.h"
 #include "kconfigdata.h"
 
@@ -223,3 +224,5 @@ std::string KConfigElektra::write_key() {
 KDB KConfigElektra::open_kdb() {
     return KDB();
 }
+
+#endif //FEAT_ELEKTRA

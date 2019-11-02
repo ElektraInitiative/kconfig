@@ -5,7 +5,11 @@
 #include <QtTest/QTest>
 #include <kconfigdata.h>
 #include <kconfigelektra.h>
+#include <KConfig>
+#include <KConfigGroup>
 #include "kconfigelektratest.h"
+
+#ifdef FEAT_ELEKTRA
 
 QTEST_MAIN(KConfigElektraTest)
 
@@ -111,3 +115,20 @@ void KConfigElektraTest::cleanupTestCase() {
     kdb_local.close();
 }
 
+void KConfigElektraTest::testKConfigElektraRead() {
+    KConfig kConfig(ElektraInfo {"elektratest", 0, "current"});
+
+    KConfigGroup group_default = kConfig.group("<default>");
+
+    QCOMPARE(group_default.readPathEntry("hello", ""), "hello");
+
+    KConfigGroup group_text_editor = kConfig.group("Text Editor");
+
+    QCOMPARE(group_text_editor.readPathEntry("preferred", ""), "kate");
+
+    KConfigGroup group_text_editor_font = group_text_editor.group("Font");
+
+    QCOMPARE(group_text_editor_font.readPathEntry("Name", ""), "Arial");
+}
+
+#endif //FEAT_ELEKTRA
