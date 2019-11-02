@@ -584,6 +584,7 @@ void KConfig::setMainConfigName(const QString &str)
     globalData()->globalMainConfigName = str;
 }
 
+#ifndef FEAT_ELEKTRA
 QString KConfig::mainConfigName()
 {
     KConfigStaticData* data = globalData();
@@ -605,7 +606,139 @@ QString KConfig::mainConfigName()
     QString appName = QCoreApplication::applicationName();
     return appName + QLatin1String("rc");
 }
+#else
+MainConfigInformation KConfig::mainConfigName()
+{
+    KConfigStaticData* data = globalData();
+    if (data->appArgs.isEmpty())
+        data->appArgs = QCoreApplication::arguments();
 
+    // --config on the command line overrides everything else
+    const QStringList args = data->appArgs;
+
+    std::string app_name = QCoreApplication::applicationName().toStdString();
+    std::string profile = "current";
+    uint major_version = 0;
+
+    QString versionString = QCoreApplication::applicationVersion();
+
+    if (!versionString.isEmpty()) {
+        bool okay;
+        int version =
+                QStringRef(&versionString, 0, versionString.indexOf(QChar::fromLatin1('.'))).toInt(&okay, 10);
+
+        if (okay) {
+            major_version = version;
+        }
+    }
+
+    for (int i = 1; i < args.count(); ++i) {
+        if (args.at(i) == QLatin1String("--config") && i < args.count() - 1) {
+            return MainConfigInformation {args.at(i + 1).toStdString()};
+        } else if (args.at(i) == QLatin1String("--elektra_app_name") && i < args.count() - 1) {
+            app_name = args.at(i + 1).toStdString();
+        } else if (args.at(i) == QLatin1String("--elektra_profile") && i < args.count() - 1) {
+            profile = args.at(i + 1).toStdString();
+        } else if (args.at(i) == QLatin1String("--elektra-version") && i < args.count() - 1) {
+            major_version = args.at(i + 1).toInt();
+        }
+    }
+
+    /*const QString globalName = data->globalMainConfigName;
+    if (!globalName.isEmpty()) {
+        return globalName;
+    }*/ //TODO check if this is needed
+
+    char * envAppName = std::getenv("KCONFIG_APP_NAME");
+    if (envAppName != nullptr) {
+        app_name = envAppName;
+    }
+
+    char * envProfile = std::getenv("KCONFIG_APP_PROFILE");
+    if (envProfile != nullptr) {
+        profile = envProfile;
+    }
+
+    char * envVersion = std::getenv("KCONFIG_APP_MAJOR_VERSION");
+    if (envVersion != nullptr) {
+        major_version = std::stoi(envVersion);
+    }
+
+    if (app_name.empty()) {
+        return MainConfigInformation {false};
+    }
+
+    return MainConfigInformation {
+        app_name,
+        true,
+        major_version,
+        profile,
+    };
+}
+#endif //FEAT_ELEKTRA
+
+
+#ifdef FEAT_ELEKTRA
+void KConfigPrivate::changeFileName(const QString &name)
+{
+    auto mainConfigInfo = KConfig::mainConfigName();
+
+    if (!mainConfigInfo.valid) {
+        return;
+    }
+
+    if (!name.isEmpty()) {
+        if (QDir::isAbsolutePath(fileName)) {
+            fileName = QFileInfo(fileName).canonicalFilePath();
+            if (fileName.isEmpty()) { // file doesn't exist (yet)
+                fileName = name;
+            }
+            QString file = fileName;
+            Q_ASSERT(!file.isEmpty());
+            bSuppressGlobal = (file.compare(*sGlobalFileName, sPathCaseSensitivity) == 0);
+
+            if (bDynamicBackend || !mBackend) { // allow dynamic changing of backend
+                mBackend = KConfigBackend::create(file);
+            } else {
+                mBackend->setFilePath(file);
+            }
+        } else {
+            if (this->mBackend == nullptr) {
+                this->mBackend = KConfigBackend::create(
+                        ElektraInfo{ fileName.toStdString(), 5 /* KF version*/,
+                                     mainConfigInfo.profile}
+                );
+            } else {
+                //TODO allow changing of configuration parameters?
+            }
+        }
+    } else if (mainConfigInfo.use_elektra) {
+        if (wantDefaults()) {
+            if (this->mBackend == nullptr) {
+                this->mBackend = KConfigBackend::create(
+                        ElektraInfo{mainConfigInfo.app_or_file_name, mainConfigInfo.major_version,
+                                    mainConfigInfo.profile}
+                );
+            } else {
+                //TODO allow changing of configuration parameters?
+            }
+        } else if (wantGlobals()) {
+            if (this->mBackend == nullptr) {
+                this->mBackend = KConfigBackend::create(
+                        ElektraInfo{ "kdeglobals", 5 /* KF version*/,
+                                    mainConfigInfo.profile}
+                );
+            } else {
+                //TODO allow changing of configuration parameters?
+            }
+        }
+    }
+
+    fileName = name;
+
+    configState = mBackend->accessMode();
+}
+#else
 void KConfigPrivate::changeFileName(const QString &name)
 {
     fileName = name;
@@ -646,6 +779,7 @@ void KConfigPrivate::changeFileName(const QString &name)
 
     configState = mBackend->accessMode();
 }
+#endif //FEAT_ELEKTRA
 
 void KConfig::reparseConfiguration()
 {
@@ -653,9 +787,6 @@ void KConfig::reparseConfiguration()
     if (d->fileName.isEmpty()) {
         return;
     }
-#ifdef ELEKTRA
-    qDebug() << "linked with Elektra";
-#endif //ELEKTRA
 
     // Don't lose pending changes
     if (!d->isReadOnly() && d->bDirty) {
@@ -1026,6 +1157,16 @@ QString KConfigPrivate::lookupData(const QByteArray &group, const char *key,
     return entryMap.getEntry(group, key, QString(), flags, expand);
 }
 
+#ifdef FEAT_ELEKTRA
+void KConfigPrivate::useElektraInfo(const ElektraInfo& elektraInfo) {
+
+    this->mBackend = KConfigBackend::create(elektraInfo);
+
+    fileName = QString::fromStdString(elektraInfo.app_name);
+    configState = mBackend->accessMode();
+}
+#endif
+
 QStandardPaths::StandardLocation KConfig::locationType() const
 {
     Q_D(const KConfig);
@@ -1036,3 +1177,12 @@ void KConfig::virtual_hook(int /*id*/, void * /*data*/)
 {
     /* nothing */
 }
+
+#ifdef FEAT_ELEKTRA
+KConfig::KConfig(const ElektraInfo &elektraInfo, KConfig::OpenFlags mode,
+                 QStandardPaths::StandardLocation resourceType) : d_ptr(new KConfigPrivate(mode, resourceType)) {
+    this->d_ptr->useElektraInfo(elektraInfo);
+
+    reparseConfiguration();
+}
+#endif //FEAT_ELEKTRA

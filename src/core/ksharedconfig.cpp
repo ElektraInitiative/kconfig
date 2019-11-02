@@ -73,6 +73,7 @@ void _k_globalMainConfigSync()
     }
 }
 
+#ifndef FEAT_ELEKTRA
 KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
         OpenFlags flags,
         QStandardPaths::StandardLocation resType)
@@ -120,6 +121,64 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 
     return ptr;
 }
+#else
+KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
+                                           OpenFlags flags,
+                                           QStandardPaths::StandardLocation resType)
+{
+    QString fileName(_fileName);
+    GlobalSharedConfigList *list = globalSharedConfigList();
+    if (fileName.isEmpty() && !flags.testFlag(KConfig::SimpleConfig)) {
+        // Determine the config file name that KConfig will make up (see KConfigPrivate::changeFileName)
+#ifdef FEAT_ELEKTRA
+        auto mainConfigInfo = KConfig::mainConfigName();
+        if (mainConfigInfo.valid) {
+            fileName = QString::fromStdString(mainConfigInfo.app_or_file_name);
+        } else {
+            //TODO figure out sensible value
+        }
+#else
+        fileName = KConfig::mainConfigName();
+#endif
+    }
+
+    if (!list->wasTestModeEnabled && QStandardPaths::isTestModeEnabled()) {
+        list->wasTestModeEnabled = true;
+        list->clear();
+        list->mainConfig = nullptr;
+    }
+
+    for (auto cfg :  qAsConst(*list)) {
+        if (cfg->name() == fileName &&
+            cfg->d_ptr->openFlags == flags &&
+            cfg->locationType() == resType
+//                cfg->backend()->type() == backend
+                ) {
+            return KSharedConfigPtr(cfg);
+        }
+    }
+
+    KSharedConfigPtr ptr(new KSharedConfig(fileName, flags, resType));
+
+    if (_fileName.isEmpty() && flags == FullConfig && resType == QStandardPaths::GenericConfigLocation) {
+        list->mainConfig = ptr;
+
+        const bool isMainThread = !qApp || QThread::currentThread() == qApp->thread();
+        static bool userWarned = false;
+        if (isMainThread && !userWarned) {
+            userWarned = true;
+            const bool isReadOnly = qEnvironmentVariableIsEmpty("KDE_HOME_READONLY");
+            if (isReadOnly && QCoreApplication::applicationName() != QLatin1String("kdialog")) {
+                if (ptr->group("General").readEntry(QStringLiteral("warn_unwritable_config"), true)) {
+                    ptr->isConfigWritable(true);
+                }
+            }
+        }
+    }
+
+    return ptr;
+}
+#endif //FEAT_ELEKTRA
 
 KSharedConfig::Ptr KSharedConfig::openStateConfig(const QString &_fileName)
 {

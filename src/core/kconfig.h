@@ -33,10 +33,14 @@
 #include <QByteArray>
 #include <QList>
 #include <qstandardpaths.h>
+#include "kconfigelektra.h"
 
 class KConfigGroup;
 class KEntryMap;
 class KConfigPrivate;
+#ifdef FEAT_ELEKTRA
+struct MainConfigInformation;
+#endif //FEAT_ELEKTRA
 
 /**
  * \class KConfig kconfig.h <KConfig>
@@ -132,6 +136,11 @@ public:
      */
     explicit KConfig(const QString &file = QString(), OpenFlags mode = FullConfig,
                      QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
+
+#ifdef FEAT_ELEKTRA
+    explicit KConfig(const ElektraInfo &elektraInfo, OpenFlags mode = FullConfig,
+                     QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
+#endif
 
     /**
      * @internal
@@ -400,12 +409,34 @@ private:
     /**
      * @internal for KSharedConfig. Could be made public if needed, though.
      */
+#ifndef FEAT_ELEKTRA
     static QString mainConfigName();
+#else
+    static MainConfigInformation mainConfigName();
+#endif
 
     Q_DISABLE_COPY(KConfig)
 
     Q_DECLARE_PRIVATE(KConfig)
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfig::OpenFlags)
+
+#ifdef FEAT_ELEKTRA
+struct MainConfigInformation {
+    std::string app_or_file_name;
+    bool use_elektra = false;
+    uint major_version = 0;
+    std::string profile = nullptr;
+    bool valid = true;
+
+    MainConfigInformation(std::string appOrFileName): app_or_file_name(appOrFileName) {}
+
+    MainConfigInformation(const std::string &appOrFileName, bool useElektra, uint majorVersion,
+                          const std::string &profile) : app_or_file_name(appOrFileName), use_elektra(useElektra),
+                                                        major_version(majorVersion), profile(profile) {}
+
+    MainConfigInformation(bool valid) : valid(valid) {}
+};
+#endif
 
 #endif // KCONFIG_H
