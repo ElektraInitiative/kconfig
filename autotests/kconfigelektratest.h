@@ -20,6 +20,7 @@ private Q_SLOTS:
     void cleanupTestCase();
     void testKConfigElektraRead();
 
+    void testKConfigElektraWrite();
 };
 
 

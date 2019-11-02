@@ -426,7 +426,7 @@ struct MainConfigInformation {
     std::string app_or_file_name;
     bool use_elektra = false;
     uint major_version = 0;
-    std::string profile = nullptr;
+    std::string profile;
     bool valid = true;
 
     MainConfigInformation(std::string appOrFileName): app_or_file_name(appOrFileName) {}

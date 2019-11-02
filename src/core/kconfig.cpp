@@ -595,6 +595,10 @@ QString KConfig::mainConfigName()
 #else
 MainConfigInformation KConfig::mainConfigName()
 {
+    if (QCoreApplication::instance() == nullptr) {
+        return MainConfigInformation { false };
+    }
+
     KConfigStaticData* data = globalData();
     if (data->appArgs.isEmpty())
         data->appArgs = QCoreApplication::arguments();
@@ -669,12 +673,8 @@ void KConfigPrivate::changeFileName(const QString &name)
 {
     auto mainConfigInfo = KConfig::mainConfigName();
 
-    if (!mainConfigInfo.valid) {
-        return;
-    }
-
     if (!name.isEmpty()) {
-        if (QDir::isAbsolutePath(fileName)) {
+        if (QDir::isAbsolutePath(fileName) || QDir::isRelativePath(fileName)) {
             fileName = QFileInfo(fileName).canonicalFilePath();
             if (fileName.isEmpty()) { // file doesn't exist (yet)
                 fileName = name;
@@ -688,7 +688,9 @@ void KConfigPrivate::changeFileName(const QString &name)
             } else {
                 mBackend->setFilePath(file);
             }
-        } else {
+            fileName = file;
+
+        } else {    // Does this make sense?
             if (this->mBackend == nullptr) {
                 this->mBackend = KConfigBackend::create(
                         ElektraInfo{ fileName.toStdString(), 5 /* KF version*/,
@@ -697,30 +699,39 @@ void KConfigPrivate::changeFileName(const QString &name)
             } else {
                 //TODO allow changing of configuration parameters?
             }
+
+            fileName = QString::fromStdString("/dev/null");
         }
-    } else if (mainConfigInfo.use_elektra) {
-        if (wantDefaults()) {
-            if (this->mBackend == nullptr) {
-                this->mBackend = KConfigBackend::create(
-                        ElektraInfo{mainConfigInfo.app_or_file_name, mainConfigInfo.major_version,
-                                    mainConfigInfo.profile}
-                );
-            } else {
-                //TODO allow changing of configuration parameters?
+    } else if (mainConfigInfo.valid) {
+
+        if (mainConfigInfo.use_elektra) {
+            if (wantDefaults()) {
+                if (this->mBackend == nullptr) {
+                    this->mBackend = KConfigBackend::create(
+                            ElektraInfo{mainConfigInfo.app_or_file_name, mainConfigInfo.major_version,
+                                        mainConfigInfo.profile}
+                    );
+                } else {
+                    //TODO allow changing of configuration parameters?
+                }
+            } else if (wantGlobals()) {
+                if (this->mBackend == nullptr) {
+                    this->mBackend = KConfigBackend::create(
+                            ElektraInfo{"kdeglobals", 5 /* KF version*/,
+                                        mainConfigInfo.profile}
+                    );
+                } else {
+                    //TODO allow changing of configuration parameters?
+                }
             }
-        } else if (wantGlobals()) {
-            if (this->mBackend == nullptr) {
-                this->mBackend = KConfigBackend::create(
-                        ElektraInfo{ "kdeglobals", 5 /* KF version*/,
-                                    mainConfigInfo.profile}
-                );
-            } else {
-                //TODO allow changing of configuration parameters?
-            }
+        } else {
+            return; //TODO handle error
         }
+
+        fileName = QString::fromStdString("/dev/null");
     }
 
-    fileName = name;
+
 
     configState = mBackend->accessMode();
 }
@@ -1148,7 +1159,7 @@ void KConfigPrivate::useElektraInfo(const ElektraInfo& elektraInfo) {
 
     this->mBackend = KConfigBackend::create(elektraInfo);
 
-    fileName = QString::fromStdString(elektraInfo.app_name);
+    fileName = QString::fromStdString("/dev/null");
     configState = mBackend->accessMode();
 }
 #endif
