@@ -6,6 +6,7 @@
 #include <KConfigGroup>
 #include <iostream>
 #include <random>
+#include <kconfigbackend_p.h>
 
 #define KEYS 100
 
@@ -67,8 +68,15 @@ void writeKeys(KConfig * config) {
     }
 }
 
+#define USE_ELEKTRA
+
 int main() {
+
+#ifdef USE_ELEKTRA
+    KConfig config(ElektraInfo{"kconf_bench", 0, "default"});
+#else
     KConfig config(QString::fromStdString("/home/felix/CLionProjects/kconfig/test/kconfig_bench_testrc"));
+#endif //USE_ELEKTRA
 
     std::cout << "Parsing...";
 

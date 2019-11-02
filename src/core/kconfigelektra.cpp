@@ -12,7 +12,9 @@
 using namespace kdb;
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(
-        appName)), major_version(majorVersion), profile(std::move(profile)) {}
+        appName)), major_version(majorVersion), profile(std::move(profile)) {
+    setFilePath(QString::fromStdString("/dev/null"));
+}
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion) :
         KConfigElektra::KConfigElektra(std::move(appName), majorVersion, "current") {}
@@ -128,10 +130,14 @@ KConfigElektra::parseConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, K
 }
 
 inline std::string kConfigGroupToElektraKey(std::string group, const std::string& keyname) {
-    std::replace(group.begin(), group.end(), '\x1d', '/');
+    if (group == "<default>" || group.empty()) {
+        return keyname;
+    } else {
+        std::replace(group.begin(), group.end(), '\x1d', '/');
 
-    return group.append("/")
+        return group.append("/")
                 .append(keyname);
+    }
 }
 
 bool KConfigElektra::writeConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, KConfigBackend::WriteOptions options) {
@@ -197,12 +203,12 @@ void KConfigElektra::createEnclosing() {
     qDebug() << "createEnclosing not implemented in Elektra backend";
 }
 
-void KConfigElektra::setFilePath(const QString &) {
-    qDebug() << "setFilePath(const QString) not implmeneted in Elektra backend";
+void KConfigElektra::setFilePath(const QString &file) {
+    setLocalFilePath(file);
 }
 
-bool KConfigElektra::lock() {
-    return false;
+bool KConfigElektra::lock() {   //Elektra takes care of locking
+    return true;
 }
 
 void KConfigElektra::unlock() {
