@@ -1,26 +1,15 @@
-//
-// Created by dardan on 10/29/19.
-//
-
 #ifndef KCONFIG_PARSER_H
 #define KCONFIG_PARSER_H
-
 
 #include "fileinputiterator.h"
 #include <elektra/kdb.hpp>
 
-using kdb::Key;
-using kdb::KeySet;
+kdb::Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const kdb::Key &parent);
 
-bool skip_if_closing_bracket(FileInputIterator &iterator);
+kdb::Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const kdb::Key &parent);
 
-Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const Key &parent);
+void addMetaIfAny(kdb::KeySet &keySet, const kdb::Key &key);
 
-Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &parent);
-
-void add_meta_if_any(KeySet &keySet, const Key &key);
-
-KeySet get_key(FileInputIterator &iterator, const Key &parent);
-
+kdb::KeySet parseFileToKeySet(FileInputIterator &iterator, const kdb::Key &parent);
 
 #endif //KCONFIG_PARSER_H

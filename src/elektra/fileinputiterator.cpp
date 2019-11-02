@@ -7,10 +7,10 @@ FileInputIterator::FileInputIterator(const std::string &filename) : file{filenam
         this->next_val = KCIniToken::END_FILE;
         return;
     }
-    update_next_val();
+    updateNextVal();
 }
 
-void FileInputIterator::update_next_val() {
+void FileInputIterator::updateNextVal() {
     switch ((this->file).peek()) {
         case EOF:
             this->next_val = KCIniToken::END_FILE;
@@ -33,20 +33,20 @@ void FileInputIterator::update_next_val() {
     }
 }
 
-KCIniToken FileInputIterator::next_val_type() const {
+KCIniToken FileInputIterator::nextValType() const {
     return this->next_val;
 }
 
-void FileInputIterator::skip_char() {
+void FileInputIterator::skipChar() {
     (this->file).get();
-    update_next_val();
+    updateNextVal();
 }
 
-char FileInputIterator::peek_next() {
+char FileInputIterator::peekNextChar() {
     return (this->file).peek();
 }
 
-void FileInputIterator::skip_line_no_update() {
+void FileInputIterator::skipLineNoUpdate() {
     while (true) {
         switch ((this->file).get()) {
             case '\n':
@@ -58,45 +58,45 @@ void FileInputIterator::skip_line_no_update() {
     }
 }
 
-void FileInputIterator::skip_line() {
-    skip_line_no_update();
-    update_next_val();
+void FileInputIterator::skipLine() {
+    skipLineNoUpdate();
+    updateNextVal();
 }
 
-bool FileInputIterator::is_end_or_newline_next() const {
-    return static_cast<int> (next_val_type()) < 2;
+bool FileInputIterator::isNextCharNewlineOrEOF() const {
+    return static_cast<int> (nextValType()) < 2;
 }
 
-void FileInputIterator::skip_line_if_not_end() {
-    if (!is_end_or_newline_next()) {
-        skip_line();
+void FileInputIterator::skipLineIfNotEndOfLine() {
+    if (!isNextCharNewlineOrEOF()) {
+        skipLine();
     }
 }
 
 
-void FileInputIterator::skip_empty_and_comments() {
+void FileInputIterator::skipLineIfEmptyOrComment() {
     while (true) {
         switch ((this->file).peek()) {
             case '\n':
-                skip_char();
+                skipChar();
                 break;
             case '#':
-                skip_line_no_update();
+                skipLineNoUpdate();
                 break;
             default:
-                update_next_val();
+                updateNextVal();
                 return;
         }
     }
 }
 
-void FileInputIterator::skip_blank_chars() {
-    while (isblank(peek_next())) {
-        skip_char();
+void FileInputIterator::skipCharsIfBlank() {
+    while (isblank(peekNextChar())) {
+        skipChar();
     }
 }
 
-void FileInputIterator::read_in_line_until_char(std::ostream &str, const char &delimiter) {
+void FileInputIterator::readUntilChar(std::ostream &str, const char &delimiter) {
     char c;
     while (true) {
         c = this->file.get();
@@ -106,10 +106,10 @@ void FileInputIterator::read_in_line_until_char(std::ostream &str, const char &d
         }
         str << c;
     }
-    update_next_val();
+    updateNextVal();
 }
 
-void FileInputIterator::read_in_line_until_char(std::ostream &str, const char &delimiterA, const char &delimiterB) {
+void FileInputIterator::readUntilChar(std::ostream &str, const char &delimiterA, const char &delimiterB) {
     char c;
     while (true) {
         c = this->file.get();
@@ -119,26 +119,26 @@ void FileInputIterator::read_in_line_until_char(std::ostream &str, const char &d
         }
         str << c;
     }
-    update_next_val();
+    updateNextVal();
 }
 
-std::string FileInputIterator::get_in_line_until_char(const char &delimiter) {
+std::string FileInputIterator::getUntilChar(const char &delimiter) {
     std::stringstream ret;
-    read_in_line_until_char(ret, delimiter);
+    readUntilChar(ret, delimiter);
     return ret.str();
 }
 
-std::string FileInputIterator::get_in_line_until_char(const char &delimiterA, const char &delimiterB) {
+std::string FileInputIterator::getUntilChar(const char &delimiterA, const char &delimiterB) {
     std::stringstream ret;
-    read_in_line_until_char(ret, delimiterA, delimiterB);
+    readUntilChar(ret, delimiterA, delimiterB);
     return ret.str();
 }
 
-bool FileInputIterator::skip_if_token(KCIniToken token) {
-    if (next_val_type() != token) {
+bool FileInputIterator::skipCharIfToken(KCIniToken token) {
+    if (nextValType() != token) {
         return false;
     }
-    skip_char();
-    update_next_val();
+    skipChar();
+    updateNextVal();
     return true;
 }

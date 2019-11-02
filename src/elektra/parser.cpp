@@ -4,31 +4,32 @@
 
 #define KCONFIG_METADATA_KEY "kconfig"
 
-bool skip_if_closing_bracket(FileInputIterator &iterator) {
-    if (iterator.next_val_type() != KCIniToken::CLOSE_BRACKET) {
-        return false;
-    }
-    iterator.skip_char();
-    return true;
-}
+using kdb::Key;
+using kdb::KeySet;
+
+static const char character_equals = '=';
+static const char character_newline = '\n';
+static const char character_dollar_sign = '\n';
+static const char character_open_bracket = '[';
+static const char character_close_bracket = ']';
 
 Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const Key &parent) {
     Key key{parent.getName()};
 
-    while (iterator.next_val_type() == KCIniToken::OPEN_BRACKET) {
-        iterator.skip_char();
-        if (iterator.peek_next() == '$') {
-            iterator.skip_char();
+    while (iterator.nextValType() == KCIniToken::OPEN_BRACKET) {
+        iterator.skipChar();
+        if (iterator.peekNextChar() == character_dollar_sign) {
+            iterator.skipChar();
 
-            std::string meta_candidate{iterator.get_in_line_until_char(']')};
+            std::string meta_candidate{iterator.getUntilChar(character_close_bracket)};
 
-            if (!iterator.skip_if_token(KCIniToken::CLOSE_BRACKET)) {
+            if (!iterator.skipCharIfToken(KCIniToken::CLOSE_BRACKET)) {
                 // Handle not ending with ]
                 return parent;
             }
 
             // Check if it is in the last bracket
-            if (iterator.is_end_or_newline_next()) {
+            if (iterator.isNextCharNewlineOrEOF()) {
                 key.setMeta(KCONFIG_METADATA_KEY, meta_candidate);
             } else {
                 // If it's not the last value, treat it as a normal key name
@@ -36,16 +37,16 @@ Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const Key &
             }
         } else {
             // Otherwise append the key name
-            key.addBaseName(iterator.get_in_line_until_char(']'));
+            key.addBaseName(iterator.getUntilChar(character_close_bracket));
 
-            if (!iterator.skip_if_token(KCIniToken::CLOSE_BRACKET)) {
+            if (!iterator.skipCharIfToken(KCIniToken::CLOSE_BRACKET)) {
                 // Handle not ending with ]
                 return parent;
             }
         }
     }
 
-    if (!iterator.is_end_or_newline_next()) {
+    if (!iterator.isNextCharNewlineOrEOF()) {
         // Next char is neither newline nor end of file
         // Handle the error if any
         return parent;
@@ -55,16 +56,16 @@ Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const Key &
 }
 
 Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &parent) {
-    iterator.skip_blank_chars();
-    if (iterator.next_val_type() != KCIniToken::OTHER) {
+    iterator.skipCharsIfBlank();
+    if (iterator.nextValType() != KCIniToken::OTHER) {
         // ???
         return parent;
     }
 
-    std::string keyname = iterator.get_in_line_until_char('=', '[');
+    std::string keyname = iterator.getUntilChar(character_equals, character_open_bracket);
     Key key{parent.dup()};
 
-    if (iterator.is_end_or_newline_next()) {
+    if (iterator.isNextCharNewlineOrEOF()) {
         // Key only.
         key.addBaseName(keyname);
         return key;
@@ -72,11 +73,11 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
 
     std::string meta{""};
     bool has_locale = false;
-    while (iterator.next_val_type() == KCIniToken::OPEN_BRACKET) {
-        iterator.skip_char();
-        if (iterator.peek_next() == '$') {
-            iterator.skip_char();
-            meta += iterator.get_in_line_until_char(']');
+    while (iterator.nextValType() == KCIniToken::OPEN_BRACKET) {
+        iterator.skipChar();
+        if (iterator.peekNextChar() == character_dollar_sign) {
+            iterator.skipChar();
+            meta += iterator.getUntilChar(character_close_bracket);
         } else {
             if (has_locale) {
                 // Only one locale is allowed
@@ -84,31 +85,32 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
             } else {
                 has_locale = true;
             }
-            keyname += '[' + iterator.get_in_line_until_char(']') + ']';
+            keyname +=
+                    character_open_bracket + iterator.getUntilChar(character_close_bracket) + character_close_bracket;
         }
 
-        if (iterator.next_val_type() != KCIniToken::CLOSE_BRACKET) {
-            iterator.skip_line_if_not_end();
+        if (iterator.nextValType() != KCIniToken::CLOSE_BRACKET) {
+            iterator.skipLineIfNotEndOfLine();
             return parent;
         }
-        iterator.skip_char();
+        iterator.skipChar();
     }
 
 
     key.addBaseName(keyname);
     // Skip empty spaces if any
-    iterator.skip_blank_chars();
-    if (iterator.next_val_type() == KCIniToken::EQUALS_SIGN) {
-        iterator.skip_char();
-        iterator.skip_blank_chars();
+    iterator.skipCharsIfBlank();
+    if (iterator.nextValType() == KCIniToken::EQUALS_SIGN) {
+        iterator.skipChar();
+        iterator.skipCharsIfBlank();
         std::stringstream value;
-        iterator.read_in_line_until_char(value, '\n');
+        iterator.readUntilChar(value, character_newline);
         key.setString(value.str());
-    } else if (!iterator.is_end_or_newline_next()) {
+    } else if (!iterator.isNextCharNewlineOrEOF()) {
         // There must've been an error in the previous while loop
         return parent;
     }
-    iterator.skip_char();
+    iterator.skipChar();
 
     if (meta != "") {
         key.setMeta(KCONFIG_METADATA_KEY, meta);
@@ -117,13 +119,13 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
     return key;
 }
 
-void add_meta_if_any(KeySet &keySet, const Key &key) {
+void addMetaIfAny(KeySet &keySet, const Key &key) {
     if (key.hasMeta(KCONFIG_METADATA_KEY)) {
         keySet.append(key);
     }
 }
 
-KeySet get_key(FileInputIterator &iterator, const Key &parent) {
+KeySet parseFileToKeySet(FileInputIterator &iterator, const Key &parent) {
     KeySet ret{};
 
     Key current_group{parent};
@@ -132,14 +134,14 @@ KeySet get_key(FileInputIterator &iterator, const Key &parent) {
 
 
     while (true) {
-        iterator.skip_empty_and_comments();
-        current_token = iterator.next_val_type();
+        iterator.skipLineIfEmptyOrComment();
+        current_token = iterator.nextValType();
         if (current_token == KCIniToken::END_FILE) {
             break;
         } else if (current_token == KCIniToken::OPEN_BRACKET) {
             // Handle group definition
             current_group = parseGroupNameFromFileInputIterator(iterator, parent);
-            add_meta_if_any(ret, current_group);
+            addMetaIfAny(ret, current_group);
         } else {
             current_key = parseEntryFromFileInputIterator(iterator, current_group);
             if (current_key != current_group) {
@@ -163,12 +165,12 @@ int main(int argc, char **argv) {
     }
     FileInputIterator config_file{filename};
     Key parent{"/sw/MyApp"};
-    if (config_file.next_val_type() == KCIniToken::END_FILE) {
+    if (config_file.nextValType() == KCIniToken::END_FILE) {
         std::cout << "Problems parsing the file or it is empty" << std::endl;
         return 1;
     }
 
-    KeySet keySet = get_key(config_file, parent);
+    KeySet keySet = parseFileToKeySet(config_file, parent);
 
     for (const Key &k : keySet) {
         std::cout << k.getName() << std::endl;
@@ -176,6 +178,7 @@ int main(int argc, char **argv) {
         std::string metadata = k.getMeta<std::string>(KCONFIG_METADATA_KEY);
         std::cout << "\tMeta: " << metadata << std::endl;
     }
+
 
     return 0;
 }

@@ -16,8 +16,7 @@ enum KCIniToken {
     OPEN_BRACKET = 2,
     CLOSE_BRACKET = 3,
     EQUALS_SIGN = 4,
-    COMMENT = 5,
-    OTHER = 6
+    OTHER = 5
 };
 
 
@@ -26,38 +25,38 @@ private:
     std::ifstream file;
     KCIniToken next_val;
 
+    void skipLineNoUpdate();
+
 public:
     FileInputIterator(const std::string &filename);
 
-    void update_next_val();
+    KCIniToken nextValType() const;
 
-    KCIniToken next_val_type() const;
+    char peekNextChar();
 
-    void skip_char();
+    bool isNextCharNewlineOrEOF() const;
 
-    char peek_next();
+    void skipChar();
 
-    void skip_line_no_update();
+    bool skipCharIfToken(KCIniToken token);
 
-    void skip_line();
+    void skipCharsIfBlank();
 
-    bool is_end_or_newline_next() const;
+    void skipLine();
 
-    void skip_line_if_not_end();
+    void skipLineIfNotEndOfLine();
 
-    void skip_empty_and_comments();
+    void skipLineIfEmptyOrComment();
 
-    void read_in_line_until_char(std::ostream &str, const char &delimiter);
+    void updateNextVal();
 
-    void read_in_line_until_char(std::ostream &str, const char &delimiterA, const char &delimiterB);
+    void readUntilChar(std::ostream &str, const char &delimiter);
 
-    void skip_blank_chars();
+    void readUntilChar(std::ostream &str, const char &delimiterA, const char &delimiterB);
 
-    std::string get_in_line_until_char(const char &delimiter);
+    std::string getUntilChar(const char &delimiter);
 
-    std::string get_in_line_until_char(const char &delimiterA, const char &delimiterB);
-
-    bool skip_if_token(KCIniToken token);
+    std::string getUntilChar(const char &delimiterA, const char &delimiterB);
 };
 
 #endif //KCONFIG_FILEINPUTITERATOR_H
