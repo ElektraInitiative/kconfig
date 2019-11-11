@@ -1,3 +1,4 @@
+#include "kconfig_elektra_base.h"
 #include "fileinputiterator.h"
 
 #include <sstream>
@@ -15,16 +16,16 @@ void FileInputIterator::updateNextVal() {
         case EOF:
             this->next_val = KCIniToken::END_FILE;
             break;
-        case '\n':
+        case character_newline:
             this->next_val = KCIniToken::NEWLINE;
             break;
-        case '[':
+        case character_open_bracket:
             this->next_val = KCIniToken::OPEN_BRACKET;
             break;
-        case ']':
+        case character_close_bracket:
             this->next_val = KCIniToken::CLOSE_BRACKET;
             break;
-        case '=':
+        case character_equals_sign:
             this->next_val = KCIniToken::EQUALS_SIGN;
             break;
         default:
@@ -49,7 +50,7 @@ char FileInputIterator::peekNextChar() {
 void FileInputIterator::skipLineNoUpdate() {
     while (true) {
         switch ((this->file).get()) {
-            case '\n':
+            case character_newline:
                 return;
             case EOF:
                 (this->file).putback(EOF);
@@ -77,10 +78,10 @@ void FileInputIterator::skipLineIfNotEndOfLine() {
 void FileInputIterator::skipLineIfEmptyOrComment() {
     while (true) {
         switch ((this->file).peek()) {
-            case '\n':
+            case character_newline:
                 skipChar();
                 break;
-            case '#':
+            case character_hash_sign:
                 skipLineNoUpdate();
                 break;
             default:
@@ -100,7 +101,7 @@ void FileInputIterator::readUntilChar(std::ostream &str, const char &delimiter) 
     char c;
     while (true) {
         c = this->file.get();
-        if (c == EOF || c == '\n' || c == delimiter) {
+        if (c == EOF || c == character_newline || c == delimiter) {
             this->file.putback(c);
             break;
         }
@@ -113,7 +114,7 @@ void FileInputIterator::readUntilChar(std::ostream &str, const char &delimiterA,
     char c;
     while (true) {
         c = this->file.get();
-        if (c == EOF || c == '\n' || c == delimiterA || c == delimiterB) {
+        if (c == EOF || c == character_newline || c == delimiterA || c == delimiterB) {
             this->file.putback(c);
             break;
         }

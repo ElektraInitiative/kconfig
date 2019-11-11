@@ -20,7 +20,7 @@ enum KCIniToken {
 };
 
 
-struct FileInputIterator {
+class FileInputIterator {
 private:
     std::ifstream file;
     KCIniToken next_val;

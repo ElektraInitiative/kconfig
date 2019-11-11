@@ -1,17 +1,8 @@
+#include "kconfig_elektra_base.h"
 #include "parser.h"
-
-#include "fileinputiterator.cpp"
-
-#define KCONFIG_METADATA_KEY "kconfig"
 
 using kdb::Key;
 using kdb::KeySet;
-
-static const char character_equals = '=';
-static const char character_newline = '\n';
-static const char character_dollar_sign = '\n';
-static const char character_open_bracket = '[';
-static const char character_close_bracket = ']';
 
 Key parseGroupNameFromFileInputIterator(FileInputIterator &iterator, const Key &parent) {
     Key key{parent.getName()};
@@ -62,7 +53,7 @@ Key parseEntryFromFileInputIterator(FileInputIterator &iterator, const Key &pare
         return parent;
     }
 
-    std::string keyname = iterator.getUntilChar(character_equals, character_open_bracket);
+    std::string keyname = iterator.getUntilChar(character_equals_sign, character_open_bracket);
     Key key{parent.dup()};
 
     if (iterator.isNextCharNewlineOrEOF()) {
@@ -151,34 +142,4 @@ KeySet parseFileToKeySet(FileInputIterator &iterator, const Key &parent) {
     }
 
     return ret;
-}
-
-// WIP: The code below was used for testing purposes
-#include <iostream>
-
-int main(int argc, char **argv) {
-    std::string filename;
-    if (argc == 2) {
-        filename = std::string{argv[1]};
-    } else {
-        filename = "testrc";
-    }
-    FileInputIterator config_file{filename};
-    Key parent{"/sw/MyApp"};
-    if (config_file.nextValType() == KCIniToken::END_FILE) {
-        std::cout << "Problems parsing the file or it is empty" << std::endl;
-        return 1;
-    }
-
-    KeySet keySet = parseFileToKeySet(config_file, parent);
-
-    for (const Key &k : keySet) {
-        std::cout << k.getName() << std::endl;
-        std::cout << "\tValue: " << k.getString() << std::endl;
-        std::string metadata = k.getMeta<std::string>(KCONFIG_METADATA_KEY);
-        std::cout << "\tMeta: " << metadata << std::endl;
-    }
-
-
-    return 0;
 }
