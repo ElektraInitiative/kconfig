@@ -52,7 +52,7 @@ ecm_add_tests(
 
 find_package(Elektra)
 
-if (ELEKTRA_FOUND)
+if (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
     message(STATUS "Elektra ${ELEKTRA_VERSION} found")
     include_directories(${ELEKTRA_INCLUDE_DIR})
 
@@ -70,7 +70,7 @@ if (ELEKTRA_FOUND)
             LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent ${ELEKTRA_LIBRARIES}
     )
     add_definitions(-DFEAT_ELEKTRA)
-endif (ELEKTRA_FOUND)
+endif (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
 
 target_include_directories(test_kconf_update PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../src/kconf_update)
 
