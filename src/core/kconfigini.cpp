@@ -598,6 +598,9 @@ void KConfigIniBackend::setFilePath(const QString &file)
     }
 
     Q_ASSERT(QDir::isAbsolutePath(file));
+#ifdef FEAT_ELEKTRA
+    qWarning() << "Using fallback backend for path " << file;
+#endif
 
     const QFileInfo info(file);
     if (info.exists()) {
