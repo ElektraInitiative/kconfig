@@ -21,6 +21,7 @@ private Q_SLOTS:
     void testKConfigElektraRead();
 
     void testKConfigElektraWrite();
+    void testKConfigElektraOpenSimpleName();
 };
 
 

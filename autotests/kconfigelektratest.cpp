@@ -7,6 +7,7 @@
 #include <kconfigelektra.h>
 #include <KConfig>
 #include <KConfigGroup>
+#include <iostream>
 #include "kconfigelektratest.h"
 
 #ifdef FEAT_ELEKTRA
@@ -66,13 +67,13 @@ void KConfigElektraTest::testBackend() {
 
     kdb_local_check.get(ks, "user/sw/org/kde/elektratest/#0/current");
     kdb_local_check.get(ks, "user/sw/org/kde/elektratestglobals/#0/current");
-    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/hello/"), "hello");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/hello"), "hello");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/preferred"), "kate");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/Name"), "Arial");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/Color"), "green");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratestglobals/#0/current/Text Editor/Global/The Earth is"), "Globular ... err GLOBAL!");
 
-    QCOMPARE(ks.lookup(Key("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/DELETE")), nullptr);
+    QCOMPARE(ks.lookup(Key("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/DELETE", KEY_END)), nullptr);
 
     kdb_local_check.close();
 }
@@ -154,6 +155,33 @@ void KConfigElektraTest::testKConfigElektraWrite() {
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test/Testing"), "In Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test With Space/Still in"), "Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test With Space/Subgroup/This subgroup is"), "also being tested!");
+}
+
+void KConfigElektraTest::testKConfigElektraOpenSimpleName() {
+
+    KConfig kConfig("elektratest");
+
+    KConfigGroup group_default = kConfig.group("<default>");
+    KConfigGroup group_test = kConfig.group("Test");
+    KConfigGroup group_test_with_space = kConfig.group("Test With Space");
+    KConfigGroup group_with_subgroup = group_test_with_space.group("Subgroup");
+
+    group_test.writeEntry("Testing", "In Progress");
+    group_test_with_space.writeEntry("Still in", "Progress");
+    group_with_subgroup.writeEntry("This subgroup is", "also being tested!");
+    group_default.writeEntry("This is default", "or is it...");
+
+    kConfig.sync();
+
+    KDB kdb_local_check;
+    KeySet ks = KeySet();
+
+    kdb_local_check.get(ks, "user/sw/org/kde/elektratest/#5/current");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/This is default"), "or is it...");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test/Testing"), "In Progress");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Still in"), "Progress");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Subgroup/This subgroup is"), "also being tested!");
+
 }
 
 #endif //FEAT_ELEKTRA

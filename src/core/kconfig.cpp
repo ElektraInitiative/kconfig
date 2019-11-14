@@ -674,8 +674,8 @@ void KConfigPrivate::changeFileName(const QString &name)
     auto mainConfigInfo = KConfig::mainConfigName();
 
     if (!name.isEmpty()) {
-        if (QDir::isAbsolutePath(fileName) || QDir::isRelativePath(fileName)) {
-            fileName = QFileInfo(fileName).canonicalFilePath();
+        if (QDir::isAbsolutePath(name)) {
+            fileName = QFileInfo(name).canonicalFilePath();
             if (fileName.isEmpty()) { // file doesn't exist (yet)
                 fileName = name;
             }
@@ -693,14 +693,14 @@ void KConfigPrivate::changeFileName(const QString &name)
         } else {    // Does this make sense?
             if (this->mBackend == nullptr) {
                 this->mBackend = KConfigBackend::create(
-                        ElektraInfo{ fileName.toStdString(), 5 /* KF version*/,
+                        ElektraInfo{ name.toStdString(), 5 /* KF version*/,
                                      mainConfigInfo.profile}
                 );
             } else {
-                //TODO allow changing of configuration parameters?
+                this->mBackend->setFilePath(fileName);
             }
 
-            fileName = QString::fromStdString("/dev/null");
+            fileName = this->mBackend->filePath();
         }
     } else if (mainConfigInfo.valid) {
 
@@ -712,7 +712,7 @@ void KConfigPrivate::changeFileName(const QString &name)
                                         mainConfigInfo.profile}
                     );
                 } else {
-                    //TODO allow changing of configuration parameters?
+                    this->mBackend->setFilePath(fileName);
                 }
             } else if (wantGlobals()) {
                 if (this->mBackend == nullptr) {
@@ -720,15 +720,13 @@ void KConfigPrivate::changeFileName(const QString &name)
                             ElektraInfo{"kdeglobals", 5 /* KF version*/,
                                         mainConfigInfo.profile}
                     );
-                } else {
-                    //TODO allow changing of configuration parameters?
-                }
+                } //no need to change anything
             }
         } else {
             return; //TODO handle error
         }
 
-        fileName = QString::fromStdString("/dev/null");
+        fileName = this->mBackend->filePath();
     }
 
 
@@ -800,7 +798,7 @@ void KConfig::reparseConfiguration()
     }
 
     // Parse all desired files from the least to the most specific.
-    if (d->wantGlobals()) {
+    if (d->wantGlobals()) { //TODO also parse globals (should always be elektra keys)
         d->parseGlobalFiles();
     }
 
@@ -832,6 +830,8 @@ QStringList KConfigPrivate::getGlobalFiles() const
     return *s_globalFiles();
 }
 
+
+#ifndef FEAT_ELEKTRA
 void KConfigPrivate::parseGlobalFiles()
 {
     const QStringList globalFiles = getGlobalFiles();
@@ -852,6 +852,14 @@ void KConfigPrivate::parseGlobalFiles()
         }
     }
 }
+#else
+void KConfigPrivate::parseGlobalFiles()
+{
+    //TODO fix profile
+    QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(ElektraInfo {"kdeglobals", 5, "current"});
+    backend->parseConfig(nullptr, entryMap, KConfigBackend::ParseGlobal | KConfigBackend::ParseExpansions);
+}
+#endif //FEAT_ELEKTRA
 
 void KConfigPrivate::parseConfigFiles()
 {
@@ -1159,7 +1167,7 @@ void KConfigPrivate::useElektraInfo(const ElektraInfo& elektraInfo) {
 
     this->mBackend = KConfigBackend::create(elektraInfo);
 
-    fileName = QString::fromStdString("/dev/null");
+    fileName = mBackend->filePath();
     configState = mBackend->accessMode();
 }
 #endif
