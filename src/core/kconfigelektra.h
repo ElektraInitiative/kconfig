@@ -21,6 +21,9 @@ private:
     std::string app_key();
     std::string write_key();
 
+    KDB * kdb;
+    KeySet * ks;
+
     static KDB open_kdb();
 
 public:

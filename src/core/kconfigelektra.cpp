@@ -6,6 +6,7 @@
 #include "kconfigelektra.h"
 #include "kconfigdata.h"
 
+#include <QDir>
 #include <utility>
 #include <iostream>
 
@@ -13,13 +14,25 @@ using namespace kdb;
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(
         appName)), major_version(majorVersion), profile(std::move(profile)) {
-    setFilePath(QString::fromStdString("/dev/null"));
+
+    this->kdb = new KDB();
+
+    Key parentKey = Key(app_key(), KEY_END);
+
+    this->ks = new KeySet();
+
+    this->kdb->get(*this->ks, parentKey);
+
+    setLocalFilePath(QString::fromStdString(parentKey.getString()));
 }
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion) :
         KConfigElektra::KConfigElektra(std::move(appName), majorVersion, "current") {}
 
-KConfigElektra::~KConfigElektra() = default;
+KConfigElektra::~KConfigElektra() {
+    delete this->kdb;
+    delete this->ks;
+}
 
 /**
  * Move both name iterators to the point, where they differ.
@@ -70,22 +83,20 @@ KConfigElektra::parseConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, K
     //TODO error handling
     //TODO properly handle parse options (or figure out how they actually work)
 
-    KDB kdb = KConfigElektra::open_kdb();
-    KeySet keySet;
+    Key parentKey = Key(app_key(), KEY_END);
 
     bool oGlobal = options & ParseGlobal;
 
-    Key parent_key = Key(app_key());
+    this->kdb->get(*this->ks, parentKey);
 
-    kdb.get(keySet, parent_key);
-    keySet = keySet.cut(parent_key);
+    for(auto iterator = this->ks->cbegin(); iterator != this->ks->cend(); iterator++) {
 
-    Key key;
+        Key key = iterator.get();
 
+        if(!key.isBelowOrSame(parentKey))
+            continue;
 
-    while((key = keySet.pop()) != nullptr) {
-
-        if (key.isDirectBelow(parent_key)) {
+        if (key.isDirectBelow(parentKey)) {
 
             KEntryMap::EntryOptions entryOptions = nullptr;
 
@@ -107,7 +118,7 @@ KConfigElektra::parseConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, K
                 entryOptions |= KEntryMap::EntryGlobal;
             }
 
-            auto parentIter = parent_key->begin();
+            auto parentIter = parentKey.begin();
             auto childIter = key.begin();
             traverseIterators(&parentIter, &childIter);
 
@@ -124,8 +135,6 @@ KConfigElektra::parseConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, K
         }
     }
 
-    kdb.close();
-
     return ParseOk;
 }
 
@@ -141,16 +150,16 @@ inline std::string kConfigGroupToElektraKey(std::string group, const std::string
 }
 
 bool KConfigElektra::writeConfig(const QByteArray& /*locale*/, KEntryMap &entryMap, KConfigBackend::WriteOptions options) {
-
+    //TODO merge
     bool onlyGlobal = options & WriteGlobal;
 
     const KEntryMapConstIterator end = entryMap.constEnd();
-    KeySet keySet;
 
-    Key parent_key = Key(write_key());
-    KDB kdb = KConfigElektra::open_kdb();
+    Key write_key = Key(this->write_key(), KEY_END);
 
-    kdb.get(keySet, parent_key);
+    this->kdb->get(*this->ks, write_key);
+
+    setLocalFilePath(QString::fromStdString(write_key.getString()));
 
     for (KEntryMapConstIterator it = entryMap.constBegin(); it != end; ++it) {
         const KEntryKey &entryKey = it.key();
@@ -163,11 +172,11 @@ bool KConfigElektra::writeConfig(const QByteArray& /*locale*/, KEntryMap &entryM
             continue;
         }
 
-        std::string eKeyName = parent_key.getFullName() + "/"
-                + kConfigGroupToElektraKey(entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
+        std::string eKeyName = write_key.getFullName() + "/"
+                               + kConfigGroupToElektraKey(entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
 
         if (entry.bDeleted || entry.mValue.isEmpty()) {
-            keySet.cut(Key(eKeyName, KEY_END));
+            this->ks->cut(Key(eKeyName, KEY_END));
 
             continue;
         }
@@ -176,13 +185,11 @@ bool KConfigElektra::writeConfig(const QByteArray& /*locale*/, KEntryMap &entryM
 
             Key eKey = Key(eKeyName, KEY_END);
             eKey.set(it.value().mValue.toStdString());
-            keySet.append(eKey);
+            this->ks->append(eKey);
         }
     }
 
-    kdb.set(keySet, parent_key);
-
-    kdb.close();
+    this->kdb->set(*this->ks, write_key);
 
     return true;
 }
@@ -199,15 +206,26 @@ KConfigBase::AccessMode KConfigElektra::accessMode() const {
     return KConfigBase::ReadWrite;
 }
 
-void KConfigElektra::createEnclosing() {
-    qDebug() << "createEnclosing not implemented in Elektra backend";
+void KConfigElektra::createEnclosing() {    //ignore
+    //qDebug() << "createEnclosing not implemented in Elektra backend";
 }
 
 void KConfigElektra::setFilePath(const QString &file) {
-    setLocalFilePath(file);
+
+    qDebug() << file;
+    Q_ASSERT_X(!QDir::isAbsolutePath(file), "change elektra app_name", "absolute file path");
+    Q_ASSERT(file.contains(QChar::fromLatin1('/')));
+
+    this->app_name = file.toStdString();
+
+    Key parentKey = Key(this->app_key(), KEY_END);
+
+    this->kdb->get(*this->ks, parentKey);
+
+    setLocalFilePath(QString::fromStdString(parentKey.getString()));
 }
 
-bool KConfigElektra::lock() {   //Elektra takes care of locking
+bool KConfigElektra::lock() {
     return true;
 }
 
