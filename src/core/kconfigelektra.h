@@ -54,6 +54,8 @@ public:
 
     bool isLocked() const override;
 
+    QString uniqueGlobalIdentifier() override;
+
 };
 
 

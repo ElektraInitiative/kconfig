@@ -64,6 +64,7 @@ void KSharedConfigTest::testReadWrite()
     }
 }
 
+
 void KSharedConfigTest::testReadWriteSync()
 {
     const int value = 1;
@@ -71,9 +72,13 @@ void KSharedConfigTest::testReadWriteSync()
         KConfigGroup cg(KSharedConfig::openConfig(), "KSharedConfigTest");
         cg.writeEntry("NumKey", value);
     }
+#ifndef FEAT_ELEKTRA    //different behaviour is expected when using elektra
     QVERIFY(!QFile::exists(m_path));
+#endif
     QVERIFY(KSharedConfig::openConfig()->sync());
+#ifndef FEAT_ELEKTRA
     QVERIFY(QFile::exists(m_path));
+#endif
     {
         KConfigGroup cg(KSharedConfig::openConfig(), "KSharedConfigTest");
         QCOMPARE(cg.readEntry("NumKey", 0), 1);

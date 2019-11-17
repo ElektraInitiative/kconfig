@@ -126,20 +126,15 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
                                            OpenFlags flags,
                                            QStandardPaths::StandardLocation resType)
 {
+    auto mainConfigInfo = KConfig::mainConfigName();
+    bool useElektra = false;
+
     QString fileName(_fileName);
     GlobalSharedConfigList *list = globalSharedConfigList();
     if (fileName.isEmpty() && !flags.testFlag(KConfig::SimpleConfig)) {
         // Determine the config file name that KConfig will make up (see KConfigPrivate::changeFileName)
-#ifdef FEAT_ELEKTRA
-        auto mainConfigInfo = KConfig::mainConfigName();
-        if (mainConfigInfo.valid) {
-            fileName = QString::fromStdString(mainConfigInfo.app_or_file_name);
-        } else {
-            //TODO figure out sensible value
-        }
-#else
-        fileName = KConfig::mainConfigName();
-#endif
+        fileName = QString::fromStdString(mainConfigInfo.getUrl());
+        useElektra = true;
     }
 
     if (!list->wasTestModeEnabled && QStandardPaths::isTestModeEnabled()) {
@@ -149,7 +144,7 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
     }
 
     for (auto cfg :  qAsConst(*list)) {
-        if (cfg->name() == fileName &&
+        if (cfg->underlyingConfigurationObject() == fileName &&
             cfg->d_ptr->openFlags == flags &&
             cfg->locationType() == resType
 //                cfg->backend()->type() == backend
@@ -158,7 +153,12 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
         }
     }
 
-    KSharedConfigPtr ptr(new KSharedConfig(fileName, flags, resType));
+    KSharedConfigPtr ptr;
+    if (mainConfigInfo.use_elektra && useElektra) {
+        ptr = KSharedConfigPtr(new KSharedConfig(mainConfigInfo, flags, resType));
+    } else {
+        ptr = KSharedConfigPtr(new KSharedConfig(fileName, flags, resType));
+    }
 
     if (_fileName.isEmpty() && flags == FullConfig && resType == QStandardPaths::GenericConfigLocation) {
         list->mainConfig = ptr;
@@ -217,3 +217,10 @@ const KConfigGroup KSharedConfig::groupImpl(const QByteArray &groupName) const
     const KSharedConfigPtr ptr(const_cast<KSharedConfig *>(this));
     return KConfigGroup(ptr, groupName.constData());
 }
+
+#ifdef FEAT_ELEKTRA
+KSharedConfig::KSharedConfig(MainConfigInformation configInformation, KConfig::OpenFlags mode,
+                             QStandardPaths::StandardLocation res): KConfig(configInformation.toElektraInfo(), mode, res) {
+    globalSharedConfigList()->append(this);
+}
+#endif //FEAT_ELEKTRA

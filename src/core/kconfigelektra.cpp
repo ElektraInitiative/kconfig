@@ -249,4 +249,15 @@ KDB KConfigElektra::open_kdb() {
     return KDB();
 }
 
+QString KConfigElektra::uniqueGlobalIdentifier() {
+    std::string url;
+
+    url.reserve(this->app_name.size() + this->profile.size() + 4 /* max assumed version length */ + 0 /* url preface and filling chars */);
+
+    url += "elektra:/" + this->app_name + "/" +
+           std::to_string(this->major_version) + "/" + this->profile;
+
+    return QString::fromStdString(url);
+}
+
 #endif //FEAT_ELEKTRA

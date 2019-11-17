@@ -743,9 +743,12 @@ void KConfigPrivate::changeFileName(const QString &name)
         fileName = this->mBackend->filePath();
     }
 
-
-
-    configState = mBackend->accessMode();
+    if (mBackend == nullptr) {
+        configState = KConfig::NoAccess;
+        qDebug() << "Could not create config object";
+    } else {
+        configState = mBackend->accessMode();
+    }
 }
 #else
 void KConfigPrivate::changeFileName(const QString &name)
@@ -1204,4 +1207,38 @@ KConfig::KConfig(const ElektraInfo &elektraInfo, KConfig::OpenFlags mode,
 
     reparseConfiguration();
 }
+
+QString KConfig::underlyingConfigurationObject() {
+    QString url = this->d_ptr->mBackend->uniqueGlobalIdentifier();
+
+    if (url.isEmpty()) {
+        return this->d_ptr->fileName;
+    }
+
+    return url;
+}
+
+std::string MainConfigInformation::getUrl() {
+    std::string url;
+    if (!this->valid)
+        return url;
+    if (this->use_elektra) {
+        url.reserve(this->app_or_file_name.size() + this->profile.size() + 4 /* max assumed version length */ + 0 /* url preface and filling chars */);
+
+        url += "elektra:/" + this->app_or_file_name + "/" +
+               std::to_string(this->major_version) + "/" + this->profile;
+    } else {
+        url.append(this->app_or_file_name);
+    }
+    return url;
+}
+
+ElektraInfo MainConfigInformation::toElektraInfo() {
+    return ElektraInfo {
+        this->app_or_file_name,
+        this->major_version,
+        this->profile,
+    };
+}
+
 #endif //FEAT_ELEKTRA

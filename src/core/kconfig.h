@@ -381,6 +381,12 @@ public:
      */
     static void setMainConfigName(const QString &str);
 
+    /**
+     *
+     * @return the unique identifier of the underlying configuration object
+     */
+    QString underlyingConfigurationObject();
+
 protected:
     bool hasGroupImpl(const QByteArray &group) const override;
     KConfigGroup groupImpl(const QByteArray &b) override;
@@ -436,6 +442,10 @@ struct MainConfigInformation {
                                                         major_version(majorVersion), profile(profile) {}
 
     MainConfigInformation(bool valid) : valid(valid) {}
+
+    std::string getUrl();
+
+    ElektraInfo toElektraInfo();
 };
 #endif
 

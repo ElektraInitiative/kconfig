@@ -32,7 +32,7 @@ private Q_SLOTS:
 
 void FallbackConfigResourcesTest::initTestCase()
 {
-    QStandardPaths::setTestModeEnabled(true);
+    QStandardPaths::setTestModeEnabled(true);   //TODO create and drop expected data (i guess)
 }
 
 void FallbackConfigResourcesTest::testResourceFallbackFile()

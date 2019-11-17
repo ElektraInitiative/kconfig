@@ -107,6 +107,11 @@ private:
     KSharedConfig(const QString &file, OpenFlags mode,
                   QStandardPaths::StandardLocation resourceType);
 
+#ifdef FEAT_ELEKTRA
+    KSharedConfig(MainConfigInformation configInformation, OpenFlags mode,
+            QStandardPaths::StandardLocation resourceType);
+#endif
+
 };
 
 typedef KSharedConfig::Ptr KSharedConfigPtr;
