@@ -203,6 +203,17 @@ public:
     /** @return the absolute path to the object */
     QString filePath() const;
 
+    /**
+     * Returns a unique global identifier of the backend for the use with @see KSharedConfig.
+     *
+     * The identifier can be a path or an URI with any arbitrary scheme. Config objects that
+     * open the same files/configurations MUST return the same identifier.
+     *
+     * @return a unique identifier for the underlying configuration object
+     * @author Felix Resch
+     */
+    virtual QString uniqueGlobalIdentifier() = 0;
+
 protected:
     KConfigBackend();
 

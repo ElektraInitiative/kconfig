@@ -24,6 +24,5 @@ private Q_SLOTS:
     void testKConfigElektraOpenSimpleName();
 };
 
-
 #endif //KCONFIG_KCONFIGELEKTRATEST_H
 #endif //FEAT_ELEKTRA

@@ -89,6 +89,9 @@ static CompilerTestSet willFailCases = {
 
 void KConfigCompiler_Test::initTestCase()
 {
+#ifdef FEAT_ELEKTRA
+    QSKIP("test cannot be run currently with Elektra");
+#endif
     m_diffExe = QStandardPaths::findExecutable( QStringLiteral("diff") );
     if (m_diffExe.isEmpty()) {
         qDebug() << "diff command not found, detailed info on comparison failure will not be available.";

@@ -636,6 +636,12 @@ bool KConfigIniBackend::lock()
     }
 
     lockFile->lock();
+
+    if (lockFile->error() == QLockFile::UnknownError) { //try creating dir if locking failed
+        this->createEnclosing();
+        lockFile->lock();
+    }
+
     return lockFile->isLocked();
 }
 
@@ -933,4 +939,8 @@ void KConfigIniBackend::printableToString(BufferFragment *aString, const QFile &
         }
     }
     aString->truncate(r - aString->constData());
+}
+
+QString KConfigIniBackend::uniqueGlobalIdentifier() {
+    return this->filePath();
 }

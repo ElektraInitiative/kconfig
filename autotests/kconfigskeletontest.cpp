@@ -61,6 +61,7 @@ void KConfigSkeletonTest::init()
 void KConfigSkeletonTest::cleanup()
 {
     delete s;
+    //TODO delete keys from Elektra DB
 }
 
 void KConfigSkeletonTest::testSimple()
