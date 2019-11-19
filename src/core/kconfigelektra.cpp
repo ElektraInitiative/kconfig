@@ -13,6 +13,44 @@
 
 using namespace kdb;
 
+/**
+ * Necessary because kconfig only loads configuration if a file exists, if the file does not exist, nothing is loaded.
+ *
+ * It is possible that no user file exists, but a system file exists. If we were to simply use the user namespace,
+ * the system keys would be ignored.
+ *
+ * @param ks
+ * @return
+ */
+static std::string findLowestKeyspace(KeySet* ks) {
+    int currentNameSpace = 0;
+    std::string nameSpace;
+    for(KeySetIterator iterator = ks->begin(); iterator < ks->end(); iterator++) {
+        std::string current = iterator.get().getNamespace();
+
+        if (current == "system") {
+            if (currentNameSpace < 1) {
+                currentNameSpace = 1;
+                nameSpace = "system";
+            }
+        } else if (current == "user") {
+            if (currentNameSpace < 10) {
+                currentNameSpace = 10;
+                nameSpace = "user";
+            }
+        } else if (current == "dir") {
+            if (currentNameSpace < 100) {
+                currentNameSpace = 100;
+                nameSpace = "dir";
+            }
+        } else {
+            std::cerr << "unknown namespace " << current << std::endl;
+        }
+    }
+
+    return nameSpace;
+}
+
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(
                 appName)), major_version(majorVersion), profile(std::move(profile))
 {
@@ -24,6 +62,14 @@ KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::stri
     this->ks = new KeySet();
 
     this->kdb->get(*this->ks, parentKey);
+
+    std::string fullKey = findLowestKeyspace(this->ks) + read_key();
+
+    parentKey = Key(fullKey, KEY_END);
+
+    KeySet keySet;
+
+    this->kdb->get(keySet, parentKey);
 
     setLocalFilePath(QString::fromStdString(parentKey.getString()));
 }

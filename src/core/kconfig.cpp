@@ -913,7 +913,7 @@ void KConfigPrivate::parseConfigFiles()
             files = extraFiles.toList() + files;
         }
 
-//        qDebug() << "parsing local files" << files;
+        qDebug() << "parsing local files" << files;
 
         const QByteArray utf8Locale = locale.toUtf8();
         for (const QString &file : qAsConst(files)) {

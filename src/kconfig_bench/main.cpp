@@ -81,6 +81,12 @@ int main() {
 
     std::cout << "Parsing...";
 
+    QStringListIterator iterator(config.groupList());
+
+    while(iterator.hasNext()) {
+        std::cout << "Group " << iterator.next().toStdString() << std::endl;
+    }
+
     KConfigGroup test = config.group("Test");
 
     if (test.hasKey("keys") && test.readEntry("keys").toInt() == KEYS) {
