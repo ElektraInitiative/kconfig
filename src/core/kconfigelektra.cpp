@@ -19,7 +19,7 @@ KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::stri
 
     this->kdb = new KDB();
 
-    Key parentKey = Key(app_key(), KEY_END);
+    Key parentKey = Key(read_key(), KEY_END);
 
     this->ks = new KeySet();
 
@@ -89,8 +89,9 @@ KConfigElektra::parseConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
 {
     //TODO error handling
     //TODO properly handle parse options (or figure out how they actually work)
+    //TODO read meta keys for proper key options
 
-    Key parentKey = Key(app_key(), KEY_END);
+    Key parentKey = Key(read_key(), KEY_END);
 
     bool oGlobal = options & ParseGlobal;
 
@@ -225,7 +226,6 @@ KConfigBase::AccessMode KConfigElektra::accessMode() const
 void KConfigElektra::createEnclosing()
 {
     //ignore
-    //qDebug() << "createEnclosing not implemented in Elektra backend";
 }
 
 void KConfigElektra::setFilePath(const QString &file)
@@ -233,11 +233,11 @@ void KConfigElektra::setFilePath(const QString &file)
 
     qDebug() << file;
     Q_ASSERT_X(!QDir::isAbsolutePath(file), "change elektra app_name", "absolute file path");
-    Q_ASSERT(file.contains(QChar::fromLatin1('/')));
+    Q_ASSERT(file.contains(QChar::fromLatin1('/')));    //???
 
     this->app_name = file.toStdString();
 
-    Key parentKey = Key(this->app_key(), KEY_END);
+    Key parentKey = Key(this->read_key(), KEY_END);
 
     this->kdb->get(*this->ks, parentKey);
 
@@ -259,7 +259,11 @@ bool KConfigElektra::isLocked() const
     return false;
 }
 
-std::string KConfigElektra::app_key()
+/**
+ *
+ * @return key to use for reading values (utilizes cascading keys)
+ */
+std::string KConfigElektra::read_key()
 {
     return "/sw/org/kde/" + this->app_name + "/#" + std::to_string(this->major_version) + "/" + this->profile;
 }
@@ -274,12 +278,16 @@ KDB KConfigElektra::open_kdb()
     return KDB();
 }
 
+/**
+ * Uses the format "elektra:/<app_name>/<major_version>/profile"
+ * @return
+ */
 QString KConfigElektra::uniqueGlobalIdentifier()
 {
     std::string url;
 
     url.reserve(this->app_name.size() + this->profile.size() + 4 /* max assumed version length */ +
-                0 /* url preface and filling chars */);
+                11 /* url preface and filling chars */);
 
     url += "elektra:/" + this->app_name + "/" +
            std::to_string(this->major_version) + "/" + this->profile;

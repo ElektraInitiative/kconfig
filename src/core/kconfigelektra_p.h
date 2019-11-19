@@ -19,7 +19,7 @@ private:
     uint major_version;
     std::string profile;
 
-    std::string app_key();
+    std::string read_key();
     std::string write_key();
 
     KDB * kdb;
