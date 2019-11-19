@@ -11,7 +11,8 @@
 
 using namespace kdb;
 
-class KConfigElektra : public KConfigBackend {
+class KConfigElektra : public KConfigBackend
+{
 
 private:
     std::string app_name;

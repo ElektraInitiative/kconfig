@@ -72,7 +72,7 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
     static QBasicAtomicInt use_etc_kderc = Q_BASIC_ATOMIC_INITIALIZER(-1);
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     if (use_etc_kderc.load() < 0) {
-        use_etc_kderc.store( !qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));    // for unit tests
+        use_etc_kderc.store(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));     // for unit tests
     }
     if (use_etc_kderc.load()) {
 #else
@@ -193,9 +193,9 @@ QString KConfigPrivate::expandString(const QString &value)
                 aVarName = aValue.midRef(nDollarPos + 2, nEndPos - nDollarPos - 3);
             } else {
                 while (nEndPos <= aValue.length() &&
-                        (aValue[nEndPos].isNumber() ||
-                         aValue[nEndPos].isLetter() ||
-                         aValue[nEndPos] == QLatin1Char('_'))) {
+                       (aValue[nEndPos].isNumber() ||
+                        aValue[nEndPos].isLetter() ||
+                        aValue[nEndPos] == QLatin1Char('_'))) {
                     nEndPos++;
                 }
                 aVarName = aValue.midRef(nDollarPos + 1, nEndPos - nDollarPos - 1);
@@ -312,7 +312,7 @@ QStringList KConfigPrivate::groupList(const QByteArray &group) const
 static bool isGroupOrSubGroupMatch(const QByteArray &potentialGroup, const QByteArray &group)
 {
     if (!potentialGroup.startsWith(group)) {
-      return false;
+        return false;
     }
     return potentialGroup.length() == group.length() || potentialGroup[group.length()] == '\x1d';
 }
@@ -499,8 +499,8 @@ void KConfigPrivate::notifyClients(const QHash<QString, QByteArrayList> &changes
     qDBusRegisterMetaType<QHash<QString, QByteArrayList>>();
 
     QDBusMessage message = QDBusMessage::createSignal(path,
-                                                                                                QStringLiteral("org.kde.kconfig.notify"),
-                                                                                                QStringLiteral("ConfigChanged"));
+                           QStringLiteral("org.kde.kconfig.notify"),
+                           QStringLiteral("ConfigChanged"));
     message.setArguments({QVariant::fromValue(changes)});
     QDBusConnection::sessionBus().send(message);
 #else
@@ -571,8 +571,7 @@ KConfig::OpenFlags KConfig::openFlags() const
     return d->openFlags;
 }
 
-struct KConfigStaticData
-{
+struct KConfigStaticData {
     QString globalMainConfigName;
     // Keep a copy so we can use it in global dtors, after qApp is gone
     QStringList appArgs;
@@ -629,7 +628,7 @@ MainConfigInformation KConfig::mainConfigName()
     if (!versionString.isEmpty()) {
         bool okay;
         int version =
-                QStringRef(&versionString, 0, versionString.indexOf(QChar::fromLatin1('.'))).toInt(&okay, 10);
+            QStringRef(&versionString, 0, versionString.indexOf(QChar::fromLatin1('.'))).toInt(&okay, 10);
 
         if (okay) {
             major_version = version;
@@ -707,9 +706,9 @@ void KConfigPrivate::changeFileName(const QString &name)
         } else {    // Does this make sense?
             if (this->mBackend == nullptr) {
                 this->mBackend = KConfigBackend::create(
-                        ElektraInfo{ name.toStdString(), 5 /* KF version*/,
-                                     mainConfigInfo.profile}
-                );
+                                     ElektraInfo{ name.toStdString(), 5 /* KF version*/,
+                                                  mainConfigInfo.profile}
+                                 );
             } else {
                 this->mBackend->setFilePath(fileName);
             }
@@ -722,18 +721,18 @@ void KConfigPrivate::changeFileName(const QString &name)
             if (wantDefaults()) {
                 if (this->mBackend == nullptr) {
                     this->mBackend = KConfigBackend::create(
-                            ElektraInfo{mainConfigInfo.app_or_file_name, mainConfigInfo.major_version,
-                                        mainConfigInfo.profile}
-                    );
+                                         ElektraInfo{mainConfigInfo.app_or_file_name, mainConfigInfo.major_version,
+                                                     mainConfigInfo.profile}
+                                     );
                 } else {
                     this->mBackend->setFilePath(fileName);
                 }
             } else if (wantGlobals()) {
                 if (this->mBackend == nullptr) {
                     this->mBackend = KConfigBackend::create(
-                            ElektraInfo{"kdeglobals", 5 /* KF version*/,
-                                        mainConfigInfo.profile}
-                    );
+                                         ElektraInfo{"kdeglobals", 5 /* KF version*/,
+                                                     mainConfigInfo.profile}
+                                     );
                 } //no need to change anything
             }
         } else {
@@ -1119,7 +1118,7 @@ bool KConfig::hasGroupImpl(const QByteArray &aGroup) const
 bool KConfigPrivate::canWriteEntry(const QByteArray &group, const char *key, bool isDefault) const
 {
     if (bFileImmutable ||
-            entryMap.getEntryOption(group, key, KEntryMap::SearchLocalized, KEntryMap::EntryImmutable)) {
+        entryMap.getEntryOption(group, key, KEntryMap::SearchLocalized, KEntryMap::EntryImmutable)) {
         return isDefault;
     }
     return true;
@@ -1180,7 +1179,8 @@ QString KConfigPrivate::lookupData(const QByteArray &group, const char *key,
 }
 
 #ifdef FEAT_ELEKTRA
-void KConfigPrivate::useElektraInfo(const ElektraInfo& elektraInfo) {
+void KConfigPrivate::useElektraInfo(const ElektraInfo& elektraInfo)
+{
 
     this->mBackend = KConfigBackend::create(elektraInfo);
 
@@ -1202,13 +1202,15 @@ void KConfig::virtual_hook(int /*id*/, void * /*data*/)
 
 #ifdef FEAT_ELEKTRA
 KConfig::KConfig(const ElektraInfo &elektraInfo, KConfig::OpenFlags mode,
-                 QStandardPaths::StandardLocation resourceType) : d_ptr(new KConfigPrivate(mode, resourceType)) {
+                 QStandardPaths::StandardLocation resourceType) : d_ptr(new KConfigPrivate(mode, resourceType))
+{
     this->d_ptr->useElektraInfo(elektraInfo);
 
     reparseConfiguration();
 }
 
-QString KConfig::underlyingConfigurationObject() {
+QString KConfig::underlyingConfigurationObject()
+{
     QString url = this->d_ptr->mBackend->uniqueGlobalIdentifier();
 
     if (url.isEmpty()) {
@@ -1218,7 +1220,8 @@ QString KConfig::underlyingConfigurationObject() {
     return url;
 }
 
-std::string MainConfigInformation::getUrl() {
+std::string MainConfigInformation::getUrl()
+{
     std::string url;
     if (!this->valid)
         return url;
@@ -1233,7 +1236,8 @@ std::string MainConfigInformation::getUrl() {
     return url;
 }
 
-ElektraInfo MainConfigInformation::toElektraInfo() {
+ElektraInfo MainConfigInformation::toElektraInfo()
+{
     return ElektraInfo {
         this->app_or_file_name,
         this->major_version,

@@ -9,19 +9,24 @@
 
 #include <QObject>
 
-class KConfigElektraTest : public QObject {
+class KConfigElektraTest : public QObject
+{
 
-    Q_OBJECT
+Q_OBJECT
 
 private Q_SLOTS:
 
-    void testBackend();
-    void initTestCase();
-    void cleanupTestCase();
-    void testKConfigElektraRead();
+    void testBackend ();
 
-    void testKConfigElektraWrite();
-    void testKConfigElektraOpenSimpleName();
+    void initTestCase ();
+
+    void cleanupTestCase ();
+
+    void testKConfigElektraRead ();
+
+    void testKConfigElektraWrite ();
+
+    void testKConfigElektraOpenSimpleName ();
 };
 
 #endif //KCONFIG_KCONFIGELEKTRATEST_H

@@ -4,7 +4,7 @@
 
 #include <QtTest/QTest>
 #include <kconfigdata.h>
-#include <kconfigelektra.h>
+#include <kconfigelektra_p.h>
 #include <KConfig>
 #include <KConfigGroup>
 #include <iostream>
@@ -15,8 +15,8 @@
 QTEST_MAIN(KConfigElektraTest)
 
 
-
-void KConfigElektraTest::testBackend() {
+void KConfigElektraTest::testBackend ()
+{
 
     KDB kdb_local;
 
@@ -45,14 +45,14 @@ void KConfigElektraTest::testBackend() {
     QCOMPARE(map.getEntry("Text Editor\x1d""Font", "Name"), "Arial");
 
     map.setEntry(QByteArray::fromStdString("Text Editor\x1d""Font"),
-            QByteArray::fromStdString("Color"),
-            QString::fromStdString("green"),
-            KEntryMap::EntryDirty);
+                 QByteArray::fromStdString("Color"),
+                 QString::fromStdString("green"),
+                 KEntryMap::EntryDirty);
 
     map.setEntry(QByteArray::fromStdString("Text Editor\x1d""Global"),
-            QByteArray::fromStdString("The Earth is"),
-            QString::fromStdString("Globular ... err GLOBAL!"),
-            KEntryMap::EntryDirty | KEntryMap::EntryGlobal);
+                 QByteArray::fromStdString("The Earth is"),
+                 QString::fromStdString("Globular ... err GLOBAL!"),
+                 KEntryMap::EntryDirty | KEntryMap::EntryGlobal);
 
     map.setEntry(QByteArray::fromStdString("Text Editor\x1d""Font"),
                  QByteArray::fromStdString("DELETE"),
@@ -71,14 +71,16 @@ void KConfigElektraTest::testBackend() {
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/preferred"), "kate");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/Name"), "Arial");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/Color"), "green");
-    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratestglobals/#0/current/Text Editor/Global/The Earth is"), "Globular ... err GLOBAL!");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratestglobals/#0/current/Text Editor/Global/The Earth is"),
+             "Globular ... err GLOBAL!");
 
     QCOMPARE(ks.lookup(Key("user/sw/org/kde/elektratest/#0/current/Text Editor/Font/DELETE", KEY_END)), nullptr);
 
     kdb_local_check.close();
 }
 
-void KConfigElektraTest::initTestCase() {
+void KConfigElektraTest::initTestCase ()
+{
     KDB kdb_local;
 
     KeySet ks;
@@ -94,7 +96,8 @@ void KConfigElektraTest::initTestCase() {
     kdb_local.close();
 }
 
-void KConfigElektraTest::cleanupTestCase() {
+void KConfigElektraTest::cleanupTestCase ()
+{
     KDB kdb_local;
 
     KeySet ks;
@@ -116,8 +119,9 @@ void KConfigElektraTest::cleanupTestCase() {
     kdb_local.close();
 }
 
-void KConfigElektraTest::testKConfigElektraRead() {
-    KConfig kConfig(ElektraInfo {"elektratest", 0, "current"});
+void KConfigElektraTest::testKConfigElektraRead ()
+{
+    KConfig kConfig(ElektraInfo{"elektratest", 0, "current"});
 
     KConfigGroup group_default = kConfig.group("<default>");
 
@@ -132,7 +136,8 @@ void KConfigElektraTest::testKConfigElektraRead() {
     QCOMPARE(group_text_editor_font.readEntry("Name", ""), "Arial");
 }
 
-void KConfigElektraTest::testKConfigElektraWrite() {
+void KConfigElektraTest::testKConfigElektraWrite ()
+{
     KConfig kConfig(ElektraInfo("elektratest", 0, "current"));
 
     KConfigGroup group_default = kConfig.group("<default>");
@@ -154,10 +159,12 @@ void KConfigElektraTest::testKConfigElektraWrite() {
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/This is default"), "or is it...");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test/Testing"), "In Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test With Space/Still in"), "Progress");
-    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test With Space/Subgroup/This subgroup is"), "also being tested!");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#0/current/Test With Space/Subgroup/This subgroup is"),
+             "also being tested!");
 }
 
-void KConfigElektraTest::testKConfigElektraOpenSimpleName() {
+void KConfigElektraTest::testKConfigElektraOpenSimpleName ()
+{
 
     KConfig kConfig("elektratest");
 
@@ -180,7 +187,8 @@ void KConfigElektraTest::testKConfigElektraOpenSimpleName() {
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/This is default"), "or is it...");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test/Testing"), "In Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Still in"), "Progress");
-    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Subgroup/This subgroup is"), "also being tested!");
+    QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Subgroup/This subgroup is"),
+             "also being tested!");
 
 }
 

@@ -442,7 +442,7 @@ public:
     * @param userData This data will be passed to @p targetFunction on every property change
     */
     KConfigCompilerSignallingItem(KConfigSkeletonItem *item, QObject* object,
-            NotifyFunction targetFunction, quint64 userData);
+                                  NotifyFunction targetFunction, quint64 userData);
     ~KConfigCompilerSignallingItem() override;
 
     void readConfig(KConfig *) override;

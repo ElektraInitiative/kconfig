@@ -1328,7 +1328,7 @@ void KCoreConfigSkeleton::addItem(KConfigSkeletonItem *item, const QString &name
 {
     if (d->mItems.contains(item)) {
         if (item->name() == name ||
-                (name.isEmpty() && item->name() == item->key())) {
+            (name.isEmpty() && item->name() == item->key())) {
             // nothing to do -> it is already in our collection
             // and the name isn't changing
             return;
@@ -1560,7 +1560,7 @@ KConfigSkeletonItem *KCoreConfigSkeleton::findItem(const QString &name) const
 KConfigCompilerSignallingItem::KConfigCompilerSignallingItem(KConfigSkeletonItem* item, QObject* object,
         KConfigCompilerSignallingItem::NotifyFunction targetFunction, quint64 userData)
     : KConfigSkeletonItem(item->group(), item->key()), mItem(item), mTargetFunction(targetFunction),
-    mObject(object), mUserData(userData)
+      mObject(object), mUserData(userData)
 {
     Q_ASSERT(mTargetFunction);
     Q_ASSERT(mItem);

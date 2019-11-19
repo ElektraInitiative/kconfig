@@ -78,12 +78,12 @@ public:
     {
         if (baseProtWildCard) {
             if (!baseProt.isEmpty() && !url.scheme().startsWith(baseProt) &&
-                    (protClass.isEmpty() || (protClass != baseProt))) {
+                (protClass.isEmpty() || (protClass != baseProt))) {
                 return false;
             }
         } else {
             if ((url.scheme() != baseProt) &&
-                    (protClass.isEmpty() || (protClass != baseProt))) {
+                (protClass.isEmpty() || (protClass != baseProt))) {
                 return false;
             }
         }
@@ -112,17 +112,17 @@ public:
     {
         if (destProtEqual) {
             if ((url.scheme() != base.scheme()) &&
-                    (protClass.isEmpty() || baseClass.isEmpty() || protClass != baseClass)) {
+                (protClass.isEmpty() || baseClass.isEmpty() || protClass != baseClass)) {
                 return false;
             }
         } else if (destProtWildCard) {
             if (!destProt.isEmpty() && !url.scheme().startsWith(destProt) &&
-                    (protClass.isEmpty() || (protClass != destProt))) {
+                (protClass.isEmpty() || (protClass != destProt))) {
                 return false;
             }
         } else {
             if ((url.scheme() != destProt) &&
-                    (protClass.isEmpty() || (protClass != destProt))) {
+                (protClass.isEmpty() || (protClass != destProt))) {
                 return false;
             }
         }
@@ -249,7 +249,7 @@ QStringList KAuthorized::authorizeControlModules(const QStringList &menuIds)
     KConfigGroup cg(KSharedConfig::openConfig(), "KDE Control Module Restrictions");
     QStringList result;
     for (QStringList::ConstIterator it = menuIds.begin();
-            it != menuIds.end(); ++it) {
+         it != menuIds.end(); ++it) {
         if (cg.readEntry(*it, true)) {
             result.append(*it);
         }
@@ -392,9 +392,9 @@ KCONFIGCORE_EXPORT bool authorizeUrlActionInternal(const QString &action, const 
 
     for (const URLActionRule &rule : qAsConst(d->urlActionRestrictions)) {
         if ((result != rule.permission) && // No need to check if it doesn't make a difference
-                (action == QLatin1String(rule.action.constData())) &&
-                rule.baseMatch(baseURL, baseClass) &&
-                rule.destMatch(destURL, destClass, baseURL, baseClass)) {
+            (action == QLatin1String(rule.action.constData())) &&
+            rule.baseMatch(baseURL, baseClass) &&
+            rule.destMatch(destURL, destClass, baseURL, baseClass)) {
             result = rule.permission;
         }
     }

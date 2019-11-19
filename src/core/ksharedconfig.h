@@ -109,7 +109,7 @@ private:
 
 #ifdef FEAT_ELEKTRA
     KSharedConfig(MainConfigInformation configInformation, OpenFlags mode,
-            QStandardPaths::StandardLocation resourceType);
+                  QStandardPaths::StandardLocation resourceType);
 #endif
 
 };

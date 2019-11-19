@@ -32,7 +32,8 @@
 #include <QThreadStorage>
 #include <QHash>
 
-class KConfigWatcherPrivate {
+class KConfigWatcherPrivate
+{
 public:
     KSharedConfig::Ptr m_config;
 };
@@ -57,7 +58,7 @@ KConfigWatcher::Ptr KConfigWatcher::create(const KSharedConfig::Ptr &config)
 }
 
 KConfigWatcher::KConfigWatcher(const KSharedConfig::Ptr &config):
-    QObject (nullptr),
+    QObject(nullptr),
     d(new KConfigWatcherPrivate)
 {
     Q_ASSERT(config);
@@ -70,20 +71,20 @@ KConfigWatcher::KConfigWatcher(const KSharedConfig::Ptr &config):
 
     QStringList watchedPaths;
     watchedPaths << QLatin1Char('/') + d->m_config->name();
-    for (const QString &file: d->m_config->additionalConfigSources()) {
+    for (const QString &file : d->m_config->additionalConfigSources()) {
         watchedPaths << QLatin1Char('/') + file;
     }
     if (d->m_config->openFlags() & KConfig::IncludeGlobals) {
         watchedPaths << QStringLiteral("/kdeglobals");
     }
 
-    for(const QString &path: qAsConst(watchedPaths)) {
+    for (const QString &path : qAsConst(watchedPaths)) {
         QDBusConnection::sessionBus().connect(QString(),
                                               path,
                                               QStringLiteral("org.kde.kconfig.notify"),
                                               QStringLiteral("ConfigChanged"),
                                               this,
-                                              SLOT(onConfigChangeNotification(QHash<QString,QByteArrayList>)));
+                                              SLOT(onConfigChangeNotification(QHash<QString, QByteArrayList>)));
     }
 #else
     qCWarning(KCONFIG_CORE_LOG) << "Use of KConfigWatcher without DBus support. You will not receive updates";
@@ -103,10 +104,10 @@ void KConfigWatcher::onConfigChangeNotification(const QHash<QString, QByteArrayL
 
     d->m_config->reparseConfiguration();
 
-    for(auto it = changes.constBegin(); it != changes.constEnd(); it++) {
+    for (auto it = changes.constBegin(); it != changes.constEnd(); it++) {
         KConfigGroup group = d->m_config->group(QString());//top level group
         const auto parts = it.key().split(QLatin1Char('\x1d')); //magic char, see KConfig
-        for(const QString &groupName: parts) {
+        for (const QString &groupName : parts) {
             group = group.group(groupName);
         }
         emit configChanged(group, it.value());

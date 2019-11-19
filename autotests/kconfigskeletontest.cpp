@@ -44,6 +44,9 @@ QTEST_MAIN(KConfigSkeletonTest)
 void KConfigSkeletonTest::initTestCase()
 {
     QStandardPaths::setTestModeEnabled(true);
+#ifdef FEAT_ELEKTRA
+    QSKIP("Test is currently not possible with Elektra");
+#endif
 }
 
 void KConfigSkeletonTest::init()
