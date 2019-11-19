@@ -70,11 +70,17 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
       configState(KConfigBase::NoAccess)
 {
     static QBasicAtomicInt use_etc_kderc = Q_BASIC_ATOMIC_INITIALIZER(-1);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     if (use_etc_kderc.load() < 0) {
         use_etc_kderc.store(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));     // for unit tests
     }
     if (use_etc_kderc.load()) {
-
+#else
+    if (use_etc_kderc.loadRelaxed() < 0) {
+        use_etc_kderc.storeRelaxed( !qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));    // for unit tests
+    }
+    if (use_etc_kderc.loadRelaxed()) {
+#endif
         etc_kderc =
 #ifdef Q_OS_WIN
             QFile::decodeName(qgetenv("WINDIR") + "/kde5rc");
@@ -82,7 +88,11 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
             QStringLiteral("/etc/kde5rc");
 #endif
         if (!QFileInfo(etc_kderc).isReadable()) {
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
             use_etc_kderc.store(false);
+#else
+            use_etc_kderc.storeRelaxed(false);
+#endif
             etc_kderc.clear();
         }
     }
@@ -256,7 +266,11 @@ KConfig::KConfig(KConfigPrivate &d)
 KConfig::~KConfig()
 {
     Q_D(KConfig);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     if (d->bDirty && (d->mBackend && d->mBackend->ref.load() == 1)) {
+#else
+    if (d->bDirty && (d->mBackend && d->mBackend->ref.loadRelaxed() == 1)) {
+#endif
         sync();
     }
     delete d;
@@ -1002,7 +1016,7 @@ bool KConfig::isGroupImmutableImpl(const QByteArray &aGroup) const
     return isImmutable() || d->entryMap.getEntryOption(aGroup, nullptr, nullptr, KEntryMap::EntryImmutable);
 }
 
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(4, 0)
 void KConfig::setForceGlobal(bool b)
 {
     Q_D(KConfig);
@@ -1010,7 +1024,7 @@ void KConfig::setForceGlobal(bool b)
 }
 #endif
 
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(4, 0)
 bool KConfig::forceGlobal() const
 {
     Q_D(const KConfig);
