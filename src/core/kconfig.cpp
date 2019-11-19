@@ -706,8 +706,7 @@ void KConfigPrivate::changeFileName(const QString &name)
         } else {    // Does this make sense?
             if (this->mBackend == nullptr) {
                 this->mBackend = KConfigBackend::create(
-                                     ElektraInfo{ name.toStdString(), 5 /* KF version*/,
-                                                  mainConfigInfo.profile}
+                                     ElektraInfo{ name.toStdString(), 5 /* KF version*/ }
                                  );
             } else {
                 this->mBackend->setFilePath(fileName);

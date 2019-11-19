@@ -194,6 +194,8 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBase::WriteConfigFlags)
 #ifdef FEAT_ELEKTRA
 
 struct ElektraInfo {
+
+
     std::string app_name;
     uint major_version;
     std::string profile = "current";
@@ -203,6 +205,8 @@ struct ElektraInfo {
             majorVersion),
         profile(std::move(profile)) {}
 
+    ElektraInfo (std::string appName, int majorVersion) : ElektraInfo(std::move(appName), majorVersion, "current")
+    {}
 };
 
 #endif //FEAT_ELEKTRA
