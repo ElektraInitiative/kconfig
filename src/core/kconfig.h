@@ -33,7 +33,6 @@
 #include <QByteArray>
 #include <QList>
 #include <qstandardpaths.h>
-#include "kconfigelektra_p.h"
 
 class KConfigGroup;
 class KEntryMap;
