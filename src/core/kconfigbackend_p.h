@@ -54,8 +54,9 @@ struct ElektraInfo;
  *
  * \internal
  */
-class KConfigBackend : public QObject, public QSharedData {
-Q_OBJECT
+class KConfigBackend : public QObject, public QSharedData
+{
+    Q_OBJECT
 
 public:
     /**
@@ -69,7 +70,7 @@ public:
      * @return a KConfigBackend object to be used with KConfig
      */
     static QExplicitlySharedDataPointer<KConfigBackend> create(const QString &fileName = QString(),
-                                                               const QString &system = QString());
+            const QString &system = QString());
 
 #ifdef FEAT_ELEKTRA
 

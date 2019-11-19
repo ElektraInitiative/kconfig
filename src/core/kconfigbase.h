@@ -68,10 +68,10 @@ public:
          * @since 5.51
          */
         Normal = Persistent
-        /**<
-        * Save the entry to the application specific config file without
-        * a locale tag. This is the default.
-        */
+                 /**<
+                 * Save the entry to the application specific config file without
+                 * a locale tag. This is the default.
+                 */
 
     };
     Q_DECLARE_FLAGS(WriteConfigFlags, WriteConfigFlag)
@@ -199,9 +199,9 @@ struct ElektraInfo {
     std::string profile = "current";
 
     ElektraInfo(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(appName)),
-                                                                               major_version(
-                                                                                       majorVersion),
-                                                                               profile(std::move(profile)) {}
+        major_version(
+            majorVersion),
+        profile(std::move(profile)) {}
 
 };
 

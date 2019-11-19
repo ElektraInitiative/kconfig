@@ -63,7 +63,10 @@ T * perThreadGlobalStatic()
 }
 
 // Q_GLOBAL_STATIC(GlobalSharedConfigList, globalSharedConfigList), but per thread:
-static GlobalSharedConfigList *globalSharedConfigList() { return perThreadGlobalStatic<GlobalSharedConfigList>(); }
+static GlobalSharedConfigList *globalSharedConfigList()
+{
+    return perThreadGlobalStatic<GlobalSharedConfigList>();
+}
 
 void _k_globalMainConfigSync()
 {
@@ -93,8 +96,8 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 
     for (auto cfg :  qAsConst(*list)) {
         if (cfg->name() == fileName &&
-                cfg->d_ptr->openFlags == flags &&
-                cfg->locationType() == resType
+            cfg->d_ptr->openFlags == flags &&
+            cfg->locationType() == resType
 //                cfg->backend()->type() == backend
            ) {
             return KSharedConfigPtr(cfg);
@@ -123,8 +126,8 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 }
 #else
 KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
-                                           OpenFlags flags,
-                                           QStandardPaths::StandardLocation resType)
+        OpenFlags flags,
+        QStandardPaths::StandardLocation resType)
 {
     auto mainConfigInfo = KConfig::mainConfigName();
     bool useElektra = false;
@@ -148,7 +151,7 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
             cfg->d_ptr->openFlags == flags &&
             cfg->locationType() == resType
 //                cfg->backend()->type() == backend
-                ) {
+           ) {
             return KSharedConfigPtr(cfg);
         }
     }
@@ -209,7 +212,8 @@ const KConfigGroup KSharedConfig::groupImpl(const QByteArray &groupName) const
 
 #ifdef FEAT_ELEKTRA
 KSharedConfig::KSharedConfig(MainConfigInformation configInformation, KConfig::OpenFlags mode,
-                             QStandardPaths::StandardLocation res): KConfig(configInformation.toElektraInfo(), mode, res) {
+                             QStandardPaths::StandardLocation res): KConfig(configInformation.toElektraInfo(), mode, res)
+{
     globalSharedConfigList()->append(this);
 }
 #endif //FEAT_ELEKTRA

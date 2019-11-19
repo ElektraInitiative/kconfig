@@ -438,7 +438,7 @@ struct MainConfigInformation {
 
     MainConfigInformation(const std::string &appOrFileName, bool useElektra, uint majorVersion,
                           const std::string &profile) : app_or_file_name(appOrFileName), use_elektra(useElektra),
-                                                        major_version(majorVersion), profile(profile) {}
+        major_version(majorVersion), profile(profile) {}
 
     MainConfigInformation(bool valid) : valid(valid) {}
 

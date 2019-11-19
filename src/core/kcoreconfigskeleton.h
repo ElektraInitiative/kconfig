@@ -345,7 +345,7 @@ public:
     * @param userData This data will be passed to @p targetFunction on every property change
     */
     KConfigCompilerSignallingItem(KConfigSkeletonItem *item, QObject* object,
-            NotifyFunction targetFunction, quint64 userData);
+                                  NotifyFunction targetFunction, quint64 userData);
     ~KConfigCompilerSignallingItem() override;
 
     void readConfig(KConfig *) override;
@@ -1486,16 +1486,16 @@ protected:
      */
     virtual bool usrSave();
 
-   /**
-     * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
-     * for compatibility.
-     */
+    /**
+      * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
+      * for compatibility.
+      */
     KCONFIGCORE_DEPRECATED virtual void usrReadConfig();
 
-   /**
-     * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
-     * for compatibility.
-     */
+    /**
+      * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
+      * for compatibility.
+      */
     KCONFIGCORE_DEPRECATED virtual bool usrWriteConfig();
 
 private:
