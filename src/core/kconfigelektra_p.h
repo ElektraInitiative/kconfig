@@ -4,8 +4,8 @@
 #include "kconfigbackend_p.h"
 
 #ifdef FEAT_ELEKTRA
-#ifndef KCONFIG_KCONFIGELEKTRA_H
-#define KCONFIG_KCONFIGELEKTRA_H
+#ifndef KCONFIG_KCONFIGELEKTRA_P_H
+#define KCONFIG_KCONFIGELEKTRA_P_H
 
 #include <kdb.hpp>
 
@@ -59,6 +59,6 @@ public:
 };
 
 
-#endif //KCONFIG_KCONFIGELEKTRA_H
+#endif //KCONFIG_KCONFIGELEKTRA_P_H
 
 #endif //FEAT_ELEKTRA

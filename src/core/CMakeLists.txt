@@ -11,7 +11,7 @@ set(libkconfigcore_SRCS
    kauthorized.cpp
    kemailsettings.cpp
    kconfigwatcher.cpp
-        kconfigelektra.cpp kconfigelektra.h)
+        kconfigelektra.cpp)
 
 ecm_qt_declare_logging_category(libkconfigcore_SRCS
                                 HEADER kconfig_core_log_settings.h
@@ -69,7 +69,6 @@ if (ELEKTRA_FOUND)
             KEMailSettings
             ConversionCheck
             KConfigWatcher
-            KConfigElektra
 
             REQUIRED_HEADERS KConfigCore_HEADERS
             )
@@ -95,7 +94,6 @@ if (ELEKTRA_FOUND)
                 kemailsettings.h
                 conversioncheck.h
                 kconfigwatcher.h
-                kconfigelektra.h
         )
     endif()
 
