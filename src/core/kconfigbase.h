@@ -27,6 +27,7 @@
 #include <kconfigcore_export.h>
 
 #include <QtGlobal>
+#include <string>
 
 class QStringList;
 class KConfigGroup;
@@ -188,5 +189,22 @@ protected:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBase::WriteConfigFlags)
+
+
+#ifdef FEAT_ELEKTRA
+
+struct ElektraInfo {
+    std::string app_name;
+    uint major_version;
+    std::string profile = "current";
+
+    ElektraInfo(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(appName)),
+                                                                               major_version(
+                                                                                       majorVersion),
+                                                                               profile(std::move(profile)) {}
+
+};
+
+#endif //FEAT_ELEKTRA
 
 #endif // KCONFIG_H

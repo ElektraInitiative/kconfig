@@ -227,22 +227,6 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::ParseOptions)
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::WriteOptions)
 
-#ifdef FEAT_ELEKTRA
-
-struct ElektraInfo {
-    std::string app_name;
-    uint major_version;
-    std::string profile = "current";
-
-    ElektraInfo(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(appName)),
-                                                                               major_version(
-                                                                                       majorVersion),
-                                                                               profile(std::move(profile)) {}
-
-};
-
-#endif
-
 #if 0 // TODO re-enable if the plugin loading code is re-enabled
 /**
  * Register a KConfig backend when it is contained in a loadable module
