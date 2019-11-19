@@ -3,7 +3,7 @@
 //
 
 #ifdef FEAT_ELEKTRA
-#include "kconfigelektra.h"
+#include "kconfigelektra_p.h"
 #include "kconfigdata.h"
 
 #include <QDir>
