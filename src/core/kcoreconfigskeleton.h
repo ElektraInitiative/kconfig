@@ -52,6 +52,7 @@ class KConfigSkeletonItemPrivate;
  */
 class KCONFIGCORE_EXPORT KConfigSkeletonItem
 {
+    Q_DECLARE_PRIVATE(KConfigSkeletonItem)
 public:
     typedef QList < KConfigSkeletonItem * >List;
     typedef QHash < QString, KConfigSkeletonItem * > Dict;
@@ -210,7 +211,24 @@ public:
      */
     bool isImmutable() const;
 
+    /**
+     * Indicates if the item is set to its default value.
+     *
+     * @since 5.64
+     */
+    bool isDefault() const;
+
+    /**
+     * Indicates if the item has a different value than the
+     * previously loaded value.
+     *
+     * @since 5.64
+     */
+    bool isSaveNeeded() const;
+
 protected:
+    explicit KConfigSkeletonItem(KConfigSkeletonItemPrivate &dd, const QString &_group, const QString &_key);
+
     /**
      * sets mIsImmutable to true if mKey in config is immutable
      * @param group KConfigGroup to check if mKey is immutable in
@@ -221,9 +239,63 @@ protected:
     QString mKey; ///< The config key for this item
     QString mName; ///< The name of this item
 
-private:
-    KConfigSkeletonItemPrivate *const d;
+    // HACK: Necessary to avoid introducing new virtuals in KConfigSkeletonItem
+    // KF6: Use proper pure virtuals in KConfigSkeletonItem
+    void setIsDefaultImpl(const std::function<bool()> &impl);
+    void setIsSaveNeededImpl(const std::function<bool()> &impl);
+
+    KConfigSkeletonItemPrivate *const d_ptr;
 };
+
+class KPropertySkeletonItemPrivate;
+
+/**
+ * \class KPropertySkeletonItem kcoreconfigskeleton.h <KCoreConfigSkeleton>
+ *
+ * @short Class for proxying a QObject property as a preferences setting
+ * @author Kevin Ottens
+ * @see KConfigSkeletonItem
+ *
+ * This class represents one preferences setting as used by @ref KCoreConfigSkeleton.
+ * Unlike other @ref KConfigSkeletonItem subclasses, this one won't store the preference
+ * in KConfig but will use a QObject property as storage.
+ * You will have to register instances of this class with the function KCoreConfigSkeleton::addItem().
+ *
+ * @since 5.65
+ */
+class KCONFIGCORE_EXPORT KPropertySkeletonItem : public KConfigSkeletonItem
+{
+    Q_DECLARE_PRIVATE(KPropertySkeletonItem)
+public:
+    /**
+     * Constructor
+     *
+     * @param object The QObject instance which we'll manage the property of
+     * @param propertyName The name of the property in @p object which we'll manage
+     * @param defaultValue The default value of the property
+     */
+    KPropertySkeletonItem(QObject *object, const QByteArray &propertyName, const QVariant &defaultValue);
+
+    /** @copydoc KConfigSkeletonItem::property() */
+    QVariant property() const override;
+    /** @copydoc KConfigSkeletonItem::setProperty(const QVariant &) */
+    void setProperty(const QVariant &p) override;
+    /** @copydoc KConfigSkeletonItem::isEqual(const QVariant &) */
+    bool isEqual(const QVariant &p) const override;
+
+    /** @copydoc KConfigSkeletonItem::readConfig(KConfig *) */
+    void readConfig(KConfig *) override;
+    /** @copydoc KConfigSkeletonItem::writeConfig(KConfig *) */
+    void writeConfig(KConfig *) override;
+
+    /** @copydoc KConfigSkeletonItem::readDefault(KConfig *) */
+    void readDefault(KConfig *) override;
+    /** @copydoc KConfigSkeletonItem::setDefault() */
+    void setDefault() override;
+    /** @copydoc KConfigSkeletonItem::swapDefault() */
+    void swapDefault() override;
+};
+
 
 /**
  * \class KConfigSkeletonGenericItem kcoreconfigskeleton.h <KConfigSkeletonGenericItem>
@@ -240,6 +312,8 @@ public:
         : KConfigSkeletonItem(_group, _key), mReference(reference),
           mDefault(defaultValue), mLoadedValue(defaultValue)
     {
+        setIsDefaultImpl([this] { return mReference == mDefault; });
+        setIsSaveNeededImpl([this] { return mReference != mLoadedValue; });
     }
 
     /**
@@ -662,8 +736,8 @@ public:
         qint64 mMin;
         qint64 mMax;
     };
-#ifndef KDE_NO_DEPRECATED
-    typedef KCONFIGCORE_DEPRECATED ItemLongLong ItemInt64;
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
+    typedef KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use ItemLongLong") ItemLongLong ItemInt64;
 #endif
 
     /**
@@ -782,8 +856,8 @@ public:
         quint64 mMin;
         quint64 mMax;
     };
-#ifndef KDE_NO_DEPRECATED
-    typedef KCONFIGCORE_DEPRECATED ItemULongLong ItemUInt64;
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
+    typedef KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use ItemULongLong") ItemULongLong ItemUInt64;
 #endif
 
     /**
@@ -1054,12 +1128,13 @@ public:
      */
     void load();
 
-#ifndef KCONFIGCORE_NO_DEPRECATED
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     /**
      * @deprecated since 5.0, call load() instead (to reload from disk) or just read()
      * if the underlying KConfig object is already up-to-date.
      */
-    KCONFIGCORE_DEPRECATED void readConfig()
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::load() or KCoreConfigSkeleton::read()")
+    void readConfig()
     {
         load();
     }
@@ -1076,6 +1151,21 @@ public:
      * @since 5.0
      */
     void read();
+
+    /**
+     * Indicates if all the registered items are set to their default value.
+     *
+     * @since 5.64
+     */
+    bool isDefaults() const;
+
+    /**
+     * Indicates if any registered item has a different value than the
+     * previously loaded value.
+     *
+     * @since 5.64
+     */
+    bool isSaveNeeded() const;
 
     /**
      * Set the config file group for subsequent addItem() calls. It is valid
@@ -1224,12 +1314,12 @@ public:
                                   qint64 defaultValue = 0,
                                   const QString &key = QString());
 
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     /**
-     * @deprecated
-     * Use addItemLongLong().
+     * @deprecated Since 5.0, use addItemLongLong().
      */
-#ifndef KDE_NO_DEPRECATED
-    KCONFIGCORE_DEPRECATED ItemLongLong *addItemInt64(const QString &name, qint64 &reference,
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::addItemLongLong(...)")
+    ItemLongLong *addItemInt64(const QString &name, qint64 &reference,
             qint64 defaultValue = 0,
             const QString &key = QString());
 #endif
@@ -1249,12 +1339,12 @@ public:
                                     quint64 defaultValue = 0,
                                     const QString &key = QString());
 
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     /**
-     * @deprecated
-     * Use addItemULongLong().
+     * @deprecated Since 5.0, use addItemULongLong().
      */
-#ifndef KDE_NO_DEPRECATED
-    KCONFIGCORE_DEPRECATED ItemULongLong *addItemUInt64(const QString &name, quint64 &reference,
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::addItemULongLong(...)")
+    ItemULongLong *addItemUInt64(const QString &name, quint64 &reference,
             quint64 defaultValue = 0,
             const QString &key = QString());
 #endif
@@ -1406,7 +1496,7 @@ public:
      * Return whether a certain item is immutable
      * @since 4.4
      */
-    bool isImmutable(const QString &name) const;
+    Q_INVOKABLE bool isImmutable(const QString &name) const;
 
     /**
      * Lookup item by name
@@ -1438,11 +1528,12 @@ public Q_SLOTS:
      */
     bool save();
 
-#ifndef KCONFIGCORE_NO_DEPRECATED
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     /**
      * @deprecated since 5.0, call save() instead.
      */
-    KCONFIGCORE_DEPRECATED void writeConfig()
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::save()")
+    void writeConfig()
     {
         save();
     }
@@ -1486,17 +1577,23 @@ protected:
      */
     virtual bool usrSave();
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
    /**
      * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
      * for compatibility.
      */
-    KCONFIGCORE_DEPRECATED virtual void usrReadConfig();
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Override KCoreConfigSkeleton::usrRead()")
+    virtual void usrReadConfig();
+#endif
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
    /**
      * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
      * for compatibility.
      */
-    KCONFIGCORE_DEPRECATED virtual bool usrWriteConfig();
+    KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Override KCoreConfigSkeleton::usrSave()")
+    virtual bool usrWriteConfig();
+#endif
 
 private:
     KCoreConfigSkeletonPrivate *const d;

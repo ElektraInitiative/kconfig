@@ -37,17 +37,26 @@ static QString obscuredString(const QString &str)
     return result;
 }
 
+KConfigSkeletonItemPrivate::~KConfigSkeletonItemPrivate() = default;
+
 KConfigSkeletonItem::KConfigSkeletonItem(const QString &_group,
         const QString &_key)
     : mGroup(_group)
     , mKey(_key)
-    , d(new KConfigSkeletonItemPrivate)
+    , d_ptr(new KConfigSkeletonItemPrivate)
+{
+}
+
+KConfigSkeletonItem::KConfigSkeletonItem(KConfigSkeletonItemPrivate &dd, const QString &_group, const QString &_key)
+    : mGroup(_group)
+    , mKey(_key)
+    , d_ptr(&dd)
 {
 }
 
 KConfigSkeletonItem::~KConfigSkeletonItem()
 {
-    delete d;
+    delete d_ptr;
 }
 
 void KConfigSkeletonItem::setGroup(const QString &_group)
@@ -82,41 +91,49 @@ QString KConfigSkeletonItem::name() const
 
 void KConfigSkeletonItem::setLabel(const QString &l)
 {
+    Q_D(KConfigSkeletonItem);
     d->mLabel = l;
 }
 
 QString KConfigSkeletonItem::label() const
 {
+    Q_D(const KConfigSkeletonItem);
     return d->mLabel;
 }
 
 void KConfigSkeletonItem::setToolTip(const QString &t)
 {
+    Q_D(KConfigSkeletonItem);
     d->mToolTip = t;
 }
 
 QString KConfigSkeletonItem::toolTip() const
 {
+    Q_D(const KConfigSkeletonItem);
     return d->mToolTip;
 }
 
 void KConfigSkeletonItem::setWhatsThis(const QString &w)
 {
+    Q_D(KConfigSkeletonItem);
     d->mWhatsThis = w;
 }
 
 QString KConfigSkeletonItem::whatsThis() const
 {
+    Q_D(const KConfigSkeletonItem);
     return d->mWhatsThis;
 }
 
 void KConfigSkeletonItem::setWriteFlags(KConfigBase::WriteConfigFlags flags)
 {
+    Q_D(KConfigSkeletonItem);
     d->mWriteFlags = flags;
 }
 
 KConfigBase::WriteConfigFlags KConfigSkeletonItem::writeFlags() const
 {
+    Q_D(const KConfigSkeletonItem);
     return d->mWriteFlags;
 }
 
@@ -132,12 +149,101 @@ QVariant KConfigSkeletonItem::maxValue() const
 
 bool KConfigSkeletonItem::isImmutable() const
 {
+    Q_D(const KConfigSkeletonItem);
     return d->mIsImmutable;
+}
+
+bool KConfigSkeletonItem::isDefault() const
+{
+    Q_D(const KConfigSkeletonItem);
+    return d->mIsDefaultImpl();
+}
+
+bool KConfigSkeletonItem::isSaveNeeded() const
+{
+    Q_D(const KConfigSkeletonItem);
+    return d->mIsSaveNeededImpl();
 }
 
 void KConfigSkeletonItem::readImmutability(const KConfigGroup &group)
 {
+    Q_D(KConfigSkeletonItem);
     d->mIsImmutable = group.isEntryImmutable(mKey);
+}
+
+void KConfigSkeletonItem::setIsDefaultImpl(const std::function<bool ()> &impl)
+{
+    Q_D(KConfigSkeletonItem);
+    d->mIsDefaultImpl = impl;
+}
+
+void KConfigSkeletonItem::setIsSaveNeededImpl(const std::function<bool ()> &impl)
+{
+    Q_D(KConfigSkeletonItem);
+    d->mIsSaveNeededImpl = impl;
+}
+
+KPropertySkeletonItem::KPropertySkeletonItem(QObject *object, const QByteArray &propertyName, const QVariant &defaultValue)
+    : KConfigSkeletonItem(*new KPropertySkeletonItemPrivate(object, propertyName, defaultValue), {}, {})
+{
+    setIsDefaultImpl([this] {
+        Q_D(const KPropertySkeletonItem);
+        return d->mReference == d->mDefaultValue;
+    });
+    setIsSaveNeededImpl([this] {
+        Q_D(const KPropertySkeletonItem);
+        return d->mReference != d->mLoadedValue;
+    });
+}
+
+QVariant KPropertySkeletonItem::property() const
+{
+    Q_D(const KPropertySkeletonItem);
+    return d->mReference;
+}
+
+void KPropertySkeletonItem::setProperty(const QVariant &p)
+{
+    Q_D(KPropertySkeletonItem);
+    d->mReference = p;
+}
+
+bool KPropertySkeletonItem::isEqual(const QVariant &p) const
+{
+    Q_D(const KPropertySkeletonItem);
+    return d->mReference == p;
+}
+
+void KPropertySkeletonItem::readConfig(KConfig *)
+{
+    Q_D(KPropertySkeletonItem);
+    d->mReference = d->mObject->property(d->mPropertyName.constData());
+    d->mLoadedValue = d->mReference;
+}
+
+void KPropertySkeletonItem::writeConfig(KConfig *)
+{
+    Q_D(KPropertySkeletonItem);
+    d->mObject->setProperty(d->mPropertyName.constData(), d->mReference);
+    d->mLoadedValue = d->mReference;
+}
+
+void KPropertySkeletonItem::readDefault(KConfig *)
+{
+    Q_D(KPropertySkeletonItem);
+    d->mReference = d->mConstDefaultValue;
+}
+
+void KPropertySkeletonItem::setDefault()
+{
+    Q_D(KPropertySkeletonItem);
+    d->mReference = d->mDefaultValue;
+}
+
+void KPropertySkeletonItem::swapDefault()
+{
+    Q_D(KPropertySkeletonItem);
+    std::swap(d->mReference, d->mDefaultValue);
 }
 
 KCoreConfigSkeleton::ItemString::ItemString(const QString &_group, const QString &_key,
@@ -1091,6 +1197,28 @@ void KCoreConfigSkeleton::read()
     usrRead();
 }
 
+bool KCoreConfigSkeleton::isDefaults() const
+{
+    KConfigSkeletonItem::List::ConstIterator it;
+    for (it = d->mItems.constBegin(); it != d->mItems.constEnd(); ++it) {
+        if (!(*it)->isDefault()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool KCoreConfigSkeleton::isSaveNeeded() const
+{
+    KConfigSkeletonItem::List::ConstIterator it;
+    for (it = d->mItems.constBegin(); it != d->mItems.constEnd(); ++it) {
+        if ((*it)->isSaveNeeded()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool KCoreConfigSkeleton::save()
 {
     //qDebug();
@@ -1120,38 +1248,34 @@ void KCoreConfigSkeleton::usrSetDefaults()
 {
 }
 
-#ifdef Q_CC_GNU
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
 void KCoreConfigSkeleton::usrRead()
 {
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
     usrReadConfig();
-}
-#ifdef Q_CC_GNU
-#pragma GCC diagnostic pop
 #endif
+}
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
 void KCoreConfigSkeleton::usrReadConfig()
 {
 }
-
-#ifdef Q_CC_GNU
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
+
 bool KCoreConfigSkeleton::usrSave()
 {
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
     return usrWriteConfig();
-}
-#ifdef Q_CC_GNU
-#pragma GCC diagnostic pop
+#else
+    return true;
 #endif
+}
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
 bool KCoreConfigSkeleton::usrWriteConfig()
 {
     return true;
 }
+#endif
 
 void KCoreConfigSkeleton::addItem(KConfigSkeletonItem *item, const QString &name)
 {
@@ -1273,7 +1397,7 @@ KCoreConfigSkeleton::ItemLongLong *KCoreConfigSkeleton::addItemLongLong(const QS
     return item;
 }
 
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
 KCoreConfigSkeleton::ItemLongLong *KCoreConfigSkeleton::addItemInt64(
     const QString &name,
     qint64 &reference,
@@ -1294,7 +1418,7 @@ KCoreConfigSkeleton::ItemULongLong *KCoreConfigSkeleton::addItemULongLong(const 
     return item;
 }
 
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
 KCoreConfigSkeleton::ItemULongLong *KCoreConfigSkeleton::addItemUInt64(
     const QString &name,
     quint64 &reference,
@@ -1394,6 +1518,9 @@ KConfigCompilerSignallingItem::KConfigCompilerSignallingItem(KConfigSkeletonItem
     Q_ASSERT(mTargetFunction);
     Q_ASSERT(mItem);
     Q_ASSERT(mObject);
+
+    setIsDefaultImpl([this] { return mItem->isDefault(); });
+    setIsSaveNeededImpl([this] { return mItem->isSaveNeeded(); });
 }
 
 KConfigCompilerSignallingItem::~KConfigCompilerSignallingItem()
