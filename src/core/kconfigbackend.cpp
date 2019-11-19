@@ -31,7 +31,7 @@
 
 #include "kconfigini_p.h"
 #include "kconfigdata.h"
-#include "kconfigelektra.h"
+#include "kconfigelektra_p.h"
 
 typedef QExplicitlySharedDataPointer<KConfigBackend> BackendPtr;
 
