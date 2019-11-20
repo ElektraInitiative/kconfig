@@ -74,7 +74,6 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
         use_etc_kderc.store(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));     // for unit tests
     }
     if (use_etc_kderc.load()) {
-
         etc_kderc =
 #ifdef Q_OS_WIN
             QFile::decodeName(qgetenv("WINDIR") + "/kde5rc");
