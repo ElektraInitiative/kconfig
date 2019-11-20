@@ -35,6 +35,9 @@ QTEST_GUILESS_MAIN(TestKConfUpdate)
 
 void TestKConfUpdate::initTestCase()
 {
+#ifdef FEAT_ELEKTRA
+    QSKIP("test is currently not supported when using Elektra");
+#endif
     QStandardPaths::setTestModeEnabled(true);
 
     // Ensure it all works with spaces in paths (as happens more commonly on OSX where it's ~/Library/Application Support/)

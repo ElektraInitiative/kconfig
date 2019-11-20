@@ -51,9 +51,11 @@ void KConfigNoKdeHomeTest::testNoKdeHome()
     KConfigGroup group(KSharedConfig::openConfig(), "Group");
     group.writeEntry("Key", "Value");
     group.sync();
+#ifndef FEAT_ELEKTRA //TODO add Elektra tests
     QVERIFY(QFile::exists(configPath));
     const QString rcFile = QCoreApplication::applicationName() + QStringLiteral("rc");
     QVERIFY(QFile::exists(configPath + QLatin1Char('/') + rcFile));
+#endif
 
     // Cleanup
     configDir.removeRecursively();

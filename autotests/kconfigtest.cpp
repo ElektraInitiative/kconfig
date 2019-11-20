@@ -104,6 +104,10 @@ static inline QString kdeGlobalsPath() {
 
 void KConfigTest::initTestCase()
 {
+#ifdef FEAT_ELEKTRA
+    QSKIP("Test currently not supported in Elektra");
+#endif
+
     // ensure we don't use files in the real config directory
     QStandardPaths::setTestModeEnabled(true);
     qRegisterMetaType<KConfigGroup>();
@@ -209,10 +213,12 @@ void KConfigTest::initTestCase()
     QVERIFY(sc.sync());
     QVERIFY(!sc.isDirty());
 
+#ifndef FEAT_ELEKTRA
     QVERIFY2(QFile::exists(testConfigDir() + QStringLiteral("/kconfigtest")),
              qPrintable(testConfigDir() + QStringLiteral("/kconfigtest must exist")));
-    QVERIFY2(QFile::exists(kdeGlobalsPath()),
+    QVERIFY2(QFile::exists(kdeGlobalsPath()),   //TODO FR: change syncing globals in the internals
              qPrintable(kdeGlobalsPath() + QStringLiteral(" must exist")));
+#endif
 
     KConfig sc1(TEST_SUBDIR "kdebugrc", KConfig::SimpleConfig);
     KConfigGroup sg0(&sc1, "0");
@@ -335,7 +341,9 @@ void KConfigTest::testSimple()
     QVERIFY(!kdeglobals.isEmpty());
 
     KConfig sc2(TEST_SUBDIR "kconfigtest");
+#ifndef FEAT_ELEKTRA    //Elektra handles naming differently
     QCOMPARE(sc2.name(), QString(TEST_SUBDIR "kconfigtest"));
+#endif
 
     // make sure groupList() isn't returning something it shouldn't
     const QStringList lstGroup = sc2.groupList();
@@ -382,6 +390,10 @@ void KConfigTest::testSimple()
 
 void KConfigTest::testDefaults()
 {
+
+#ifdef FEAT_ELEKTRA
+    QSKIP("Test not applicable in Elektra");
+#endif
     KConfig config(TEST_SUBDIR "defaulttest", KConfig::NoGlobals);
     const QString defaultsFile = TEST_SUBDIR "defaulttest.defaults";
     KConfig defaults(defaultsFile, KConfig::SimpleConfig);
@@ -748,7 +760,7 @@ void KConfigTest::testChangeGroup()
     KConfigGroup sc3(&sc, "Hello");
     QCOMPARE(sc3.name(), QString("Hello"));
     KConfigGroup newGroup(sc3);
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     newGroup.changeGroup("FooBar"); // deprecated!
     QCOMPARE(newGroup.name(), QString("FooBar"));
     QCOMPARE(sc3.name(), QString("Hello")); // unchanged
@@ -764,7 +776,7 @@ void KConfigTest::testChangeGroup()
     KConfigGroup sc32(rootGroup.group("Hello"));
     QCOMPARE(sc32.name(), QString("Hello"));
     KConfigGroup newGroup2(sc32);
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 0)
     newGroup2.changeGroup("FooBar"); // deprecated!
     QCOMPARE(newGroup2.name(), QString("FooBar"));
     QCOMPARE(sc32.name(), QString("Hello")); // unchanged

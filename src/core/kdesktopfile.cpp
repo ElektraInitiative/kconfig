@@ -294,8 +294,8 @@ bool KDesktopFile::tryExec() const
 
     if (!list.isEmpty()) {
         for (QStringList::ConstIterator it = list.begin();
-                it != list.end();
-                ++it) {
+             it != list.end();
+             ++it) {
             if (!KAuthorized::authorize((*it).trimmed())) {
                 return false;
             }
@@ -331,7 +331,7 @@ bool KDesktopFile::tryExec() const
 //QString
 //KDesktopFile::resource() const { return backEnd->resource(); }
 
-#ifndef KDE_NO_DEPRECATED
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 42)
 QStringList
 KDesktopFile::sortOrder() const
 {

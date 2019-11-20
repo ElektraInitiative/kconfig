@@ -27,6 +27,7 @@
 #include <kconfigcore_export.h>
 
 #include <QtGlobal>
+#include <string>
 
 class QStringList;
 class KConfigGroup;
@@ -67,10 +68,10 @@ public:
          * @since 5.51
          */
         Normal = Persistent
-        /**<
-        * Save the entry to the application specific config file without
-        * a locale tag. This is the default.
-        */
+                 /**<
+                 * Save the entry to the application specific config file without
+                 * a locale tag. This is the default.
+                 */
 
     };
     Q_DECLARE_FLAGS(WriteConfigFlags, WriteConfigFlag)
@@ -188,5 +189,26 @@ protected:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBase::WriteConfigFlags)
+
+
+#ifdef FEAT_ELEKTRA
+
+struct ElektraInfo {
+
+
+    std::string app_name;
+    uint major_version;
+    std::string profile = "current";
+
+    ElektraInfo(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(appName)),
+        major_version(
+            majorVersion),
+        profile(std::move(profile)) {}
+
+    ElektraInfo(std::string appName, int majorVersion) : ElektraInfo(std::move(appName), majorVersion, "current")
+    {}
+};
+
+#endif //FEAT_ELEKTRA
 
 #endif // KCONFIG_H

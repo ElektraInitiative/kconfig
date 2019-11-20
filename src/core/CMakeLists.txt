@@ -11,7 +11,7 @@ set(libkconfigcore_SRCS
    kauthorized.cpp
    kemailsettings.cpp
    kconfigwatcher.cpp
-)
+        kconfigelektra.cpp)
 
 ecm_qt_declare_logging_category(libkconfigcore_SRCS
                                 HEADER kconfig_core_log_settings.h
@@ -21,8 +21,15 @@ ecm_qt_declare_logging_category(libkconfigcore_SRCS
 configure_file(config-kconfig.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-kconfig.h )
 
 add_library(KF5ConfigCore ${libkconfigcore_SRCS})
-generate_export_header(KF5ConfigCore BASE_NAME KConfigCore)
 add_library(KF5::ConfigCore ALIAS KF5ConfigCore)
+ecm_generate_export_header(KF5ConfigCore
+    BASE_NAME KConfigCore
+    GROUP_BASE_NAME KF
+    VERSION ${KF5_VERSION}
+    DEPRECATED_BASE_VERSION 0
+    DEPRECATION_VERSIONS 4.0 5.0 5.24 5.42
+    EXCLUDE_DEPRECATED_BEFORE_AND_AT ${EXCLUDE_DEPRECATED_BEFORE_AND_AT}
+)
 
 target_compile_definitions(KF5ConfigCore
     PRIVATE
@@ -42,49 +49,104 @@ if(WIN32)
 endif()
 
 set_target_properties(KF5ConfigCore PROPERTIES VERSION   ${KCONFIG_VERSION_STRING}
-                                               SOVERSION ${KCONFIG_SOVERSION}
-                                               EXPORT_NAME ConfigCore
-)
+        SOVERSION ${KCONFIG_SOVERSION}
+        EXPORT_NAME ConfigCore
+        )
 
-ecm_generate_headers(KConfigCore_HEADERS
-  HEADER_NAMES
-  KAuthorized
-  KConfig
-  KConfigBase
-  KConfigGroup
-  KDesktopFile
-  KSharedConfig
-  KCoreConfigSkeleton
-  KEMailSettings
-  ConversionCheck
-  KConfigWatcher
+find_package(Elektra)
 
-  REQUIRED_HEADERS KConfigCore_HEADERS
-)
+if (ELEKTRA_FOUND)
+    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
+    include_directories(${ELEKTRA_INCLUDE_DIR})
 
-find_package(PythonModuleGeneration)
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
 
-if (PythonModuleGeneration_FOUND)
-  ecm_generate_python_binding(
-    TARGET KF5::ConfigCore
-    PYTHONNAMESPACE PyKF5
-    MODULENAME KConfigCore
-    RULES_FILE "${CMAKE_SOURCE_DIR}/cmake/rules_PyKF5.py"
-    SIP_DEPENDS
-      QtCore/QtCoremod.sip
-    HEADERS
-      kauthorized.h
-      kconfig.h
-      kconfigbase.h
-      kconfiggroup.h
-      kdesktopfile.h
-      ksharedconfig.h
-      kcoreconfigskeleton.h
-      kemailsettings.h
-      conversioncheck.h
-      kconfigwatcher.h
-  )
-endif()
+    target_link_libraries(KF5ConfigCore PRIVATE ${ELEKTRA_LIBRARIES})
+    add_definitions(-DFEAT_ELEKTRA)
+
+    ecm_generate_headers(KConfigCore_HEADERS
+            HEADER_NAMES
+            KAuthorized
+            KConfig
+            KConfigBase
+            KConfigGroup
+            KDesktopFile
+            KSharedConfig
+            KCoreConfigSkeleton
+            KEMailSettings
+            ConversionCheck
+            KConfigWatcher
+
+            REQUIRED_HEADERS KConfigCore_HEADERS
+            )
+
+    find_package(PythonModuleGeneration)
+
+    if (PythonModuleGeneration_FOUND)
+        ecm_generate_python_binding(
+                TARGET KF5::ConfigCore
+                PYTHONNAMESPACE PyKF5
+                MODULENAME KConfigCore
+                RULES_FILE "${CMAKE_SOURCE_DIR}/cmake/rules_PyKF5.py"
+                SIP_DEPENDS
+                QtCore/QtCoremod.sip
+                HEADERS
+                kauthorized.h
+                kconfig.h
+                kconfigbase.h
+                kconfiggroup.h
+                kdesktopfile.h
+                ksharedconfig.h
+                kcoreconfigskeleton.h
+                kemailsettings.h
+                conversioncheck.h
+                kconfigwatcher.h
+        )
+    endif()
+
+else(ELEKTRA_FOUND)
+
+    ecm_generate_headers(KConfigCore_HEADERS
+            HEADER_NAMES
+            KAuthorized
+            KConfig
+            KConfigBase
+            KConfigGroup
+            KDesktopFile
+            KSharedConfig
+            KCoreConfigSkeleton
+            KEMailSettings
+            ConversionCheck
+            KConfigWatcher
+
+            REQUIRED_HEADERS KConfigCore_HEADERS
+            )
+
+    find_package(PythonModuleGeneration)
+
+    if (PythonModuleGeneration_FOUND)
+        ecm_generate_python_binding(
+                TARGET KF5::ConfigCore
+                PYTHONNAMESPACE PyKF5
+                MODULENAME KConfigCore
+                RULES_FILE "${CMAKE_SOURCE_DIR}/cmake/rules_PyKF5.py"
+                SIP_DEPENDS
+                QtCore/QtCoremod.sip
+                HEADERS
+                kauthorized.h
+                kconfig.h
+                kconfigbase.h
+                kconfiggroup.h
+                kdesktopfile.h
+                ksharedconfig.h
+                kcoreconfigskeleton.h
+                kemailsettings.h
+                conversioncheck.h
+                kconfigwatcher.h
+        )
+    endif()
+
+endif (ELEKTRA_FOUND)
 
 install(TARGETS KF5ConfigCore EXPORT KF5ConfigTargets ${KF5_INSTALL_TARGETS_DEFAULT_ARGS})
 

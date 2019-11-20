@@ -37,6 +37,9 @@
 class KConfigGroup;
 class KEntryMap;
 class KConfigPrivate;
+#ifdef FEAT_ELEKTRA
+struct MainConfigInformation;
+#endif //FEAT_ELEKTRA
 
 /**
  * \class KConfig kconfig.h <KConfig>
@@ -132,6 +135,11 @@ public:
      */
     explicit KConfig(const QString &file = QString(), OpenFlags mode = FullConfig,
                      QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
+
+#ifdef FEAT_ELEKTRA
+    explicit KConfig(const ElektraInfo &elektraInfo, OpenFlags mode = FullConfig,
+                     QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
+#endif
 
     /**
      * @internal
@@ -324,29 +332,29 @@ public:
     /// @}
 
     /// @{ global
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(4, 0)
     /**
-     * @deprecated
-     *
      * Forces all following write-operations to be performed on @c kdeglobals,
      * independent of the @c Global flag in writeEntry().
      *
      * @param force true to force writing to kdeglobals
      * @see forceGlobal
+     * @deprecated Since 4.0
      */
-#ifndef KDE_NO_DEPRECATED
-    KCONFIGCORE_DEPRECATED void setForceGlobal(bool force);
+    KCONFIGCORE_DEPRECATED_VERSION(4, 0, "Not recommended")
+    void setForceGlobal(bool force);
 #endif
+
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(4, 0)
     /**
-     * @deprecated
-     *
      * Returns whether all entries are being written to @c kdeglobals.
      *
      * @return @c true if all entries are being written to @c kdeglobals
      * @see setForceGlobal
-     * @deprecated
+     * @deprecated Since 4.0
      */
-#ifndef KDE_NO_DEPRECATED
-    KCONFIGCORE_DEPRECATED bool forceGlobal() const;
+    KCONFIGCORE_DEPRECATED_VERSION(4, 0, "Not recommended")
+    bool forceGlobal() const;
 #endif
     /// @}
 
@@ -371,6 +379,12 @@ public:
      * @since 5.0
      */
     static void setMainConfigName(const QString &str);
+
+    /**
+     *
+     * @return the unique identifier of the underlying configuration object
+     */
+    QString underlyingConfigurationObject();
 
 protected:
     bool hasGroupImpl(const QByteArray &group) const override;
@@ -400,12 +414,38 @@ private:
     /**
      * @internal for KSharedConfig. Could be made public if needed, though.
      */
+#ifndef FEAT_ELEKTRA
     static QString mainConfigName();
+#else
+    static MainConfigInformation mainConfigName();
+#endif
 
     Q_DISABLE_COPY(KConfig)
 
     Q_DECLARE_PRIVATE(KConfig)
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfig::OpenFlags)
+
+#ifdef FEAT_ELEKTRA
+struct MainConfigInformation {
+    std::string app_or_file_name;
+    bool use_elektra = false;
+    uint major_version = 0;
+    std::string profile;
+    bool valid = true;
+
+    MainConfigInformation(std::string appOrFileName): app_or_file_name(appOrFileName) {}
+
+    MainConfigInformation(const std::string &appOrFileName, bool useElektra, uint majorVersion,
+                          const std::string &profile) : app_or_file_name(appOrFileName), use_elektra(useElektra),
+        major_version(majorVersion), profile(profile) {}
+
+    MainConfigInformation(bool valid) : valid(valid) {}
+
+    std::string getUrl();
+
+    ElektraInfo toElektraInfo();
+};
+#endif
 
 #endif // KCONFIG_H

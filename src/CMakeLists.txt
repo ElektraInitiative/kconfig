@@ -5,6 +5,7 @@ endif()
 add_subdirectory(kconfig_compiler)
 add_subdirectory(kconf_update)
 add_subdirectory(kreadconfig)
+add_subdirectory(kconfig_bench)
 
 if (BUILD_QCH)
     ecm_add_qch(
@@ -30,9 +31,11 @@ if (BUILD_QCH)
             KCONFIGCORE_EXPORT
             KCONFIGCORE_DEPRECATED_EXPORT
             KCONFIGCORE_DEPRECATED
+            "KCONFIGCORE_DEPRECATED_VERSION(x, y, t)"
             KCONFIGGUI_EXPORT
             KCONFIGGUI_DEPRECATED_EXPORT
             KCONFIGGUI_DEPRECATED
+            "KCONFIGGUI_DEPRECATED_VERSION(x, y, t)"
         TAGFILE_INSTALL_DESTINATION ${KDE_INSTALL_QTQCHDIR}
         QCH_INSTALL_DESTINATION ${KDE_INSTALL_QTQCHDIR}
         COMPONENT Devel
