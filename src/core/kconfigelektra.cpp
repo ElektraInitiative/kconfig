@@ -63,13 +63,13 @@ KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::stri
 
     this->kdb->get(*this->ks, parentKey);
 
-    std::string fullKey = findLowestKeyspace(this->ks) + read_key();
+    /*std::string fullKey = findLowestKeyspace(this->ks) + read_key();
 
     parentKey = Key(fullKey, KEY_END);
 
     KeySet keySet;
 
-    this->kdb->get(keySet, parentKey);
+    this->kdb->get(keySet, parentKey);*/ //TODO reactivate when proper work-around has been found
 
     setLocalFilePath(QString::fromStdString(parentKey.getString()));
 }
