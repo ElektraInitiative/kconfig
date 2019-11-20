@@ -205,7 +205,7 @@ struct ElektraInfo {
             majorVersion),
         profile(std::move(profile)) {}
 
-    ElektraInfo (std::string appName, int majorVersion) : ElektraInfo(std::move(appName), majorVersion, "current")
+    ElektraInfo(std::string appName, int majorVersion) : ElektraInfo(std::move(appName), majorVersion, "current")
     {}
 };
 

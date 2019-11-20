@@ -22,10 +22,11 @@ using namespace kdb;
  * @param ks
  * @return
  */
-static std::string findLowestKeyspace(KeySet* ks) {
+static std::string findLowestKeyspace(KeySet* ks)
+{
     int currentNameSpace = 0;
     std::string nameSpace;
-    for(KeySetIterator iterator = ks->begin(); iterator < ks->end(); iterator++) {
+    for (KeySetIterator iterator = ks->begin(); iterator < ks->end(); iterator++) {
         std::string current = iterator.get().getNamespace();
 
         if (current == "system") {

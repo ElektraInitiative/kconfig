@@ -419,7 +419,7 @@ public:
     * @param userData This data will be passed to @p targetFunction on every property change
     */
     KConfigCompilerSignallingItem(KConfigSkeletonItem *item, QObject* object,
-            NotifyFunction targetFunction, quint64 userData);
+                                  NotifyFunction targetFunction, quint64 userData);
     ~KConfigCompilerSignallingItem() override;
 
     void readConfig(KConfig *) override;
@@ -1320,8 +1320,8 @@ public:
      */
     KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::addItemLongLong(...)")
     ItemLongLong *addItemInt64(const QString &name, qint64 &reference,
-            qint64 defaultValue = 0,
-            const QString &key = QString());
+                               qint64 defaultValue = 0,
+                               const QString &key = QString());
 #endif
 
     /**
@@ -1345,8 +1345,8 @@ public:
      */
     KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Use KCoreConfigSkeleton::addItemULongLong(...)")
     ItemULongLong *addItemUInt64(const QString &name, quint64 &reference,
-            quint64 defaultValue = 0,
-            const QString &key = QString());
+                                 quint64 defaultValue = 0,
+                                 const QString &key = QString());
 #endif
 
     /**
@@ -1578,19 +1578,19 @@ protected:
     virtual bool usrSave();
 
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
-   /**
-     * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
-     * for compatibility.
-     */
+    /**
+      * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
+      * for compatibility.
+      */
     KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Override KCoreConfigSkeleton::usrRead()")
     virtual void usrReadConfig();
 #endif
 
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
-   /**
-     * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
-     * for compatibility.
-     */
+    /**
+      * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
+      * for compatibility.
+      */
     KCONFIGCORE_DEPRECATED_VERSION(5, 0, "Override KCoreConfigSkeleton::usrSave()")
     virtual bool usrWriteConfig();
 #endif

@@ -77,7 +77,7 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
     if (use_etc_kderc.load()) {
 #else
     if (use_etc_kderc.loadRelaxed() < 0) {
-        use_etc_kderc.storeRelaxed( !qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));    // for unit tests
+        use_etc_kderc.storeRelaxed(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));     // for unit tests
     }
     if (use_etc_kderc.loadRelaxed()) {
 #endif
