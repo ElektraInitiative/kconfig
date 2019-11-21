@@ -72,7 +72,7 @@ void KSharedConfigTest::testReadWriteSync()
         KConfigGroup cg(KSharedConfig::openConfig(), "KSharedConfigTest");
         cg.writeEntry("NumKey", value);
     }
-#ifndef FEAT_ELEKTRA    //different behaviour is expected when using elektra
+#ifndef FEAT_ELEKTRA    //different behaviour is expected when using elektra (see docs/elektra_differences.md)
     QVERIFY(!QFile::exists(m_path));
 #endif
     QVERIFY(KSharedConfig::openConfig()->sync());

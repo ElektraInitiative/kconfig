@@ -14,6 +14,7 @@
 
 QTEST_MAIN(KConfigElektraTest)
 
+using namespace kdb;
 
 void KConfigElektraTest::testBackend ()
 {
@@ -189,7 +190,6 @@ void KConfigElektraTest::testKConfigElektraOpenSimpleName ()
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Still in"), "Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Subgroup/This subgroup is"),
              "also being tested!");
-
 }
 
 #endif //FEAT_ELEKTRA

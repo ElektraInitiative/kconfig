@@ -5,6 +5,7 @@ include(ECMAddTests)
 
 find_package(Qt5Test ${REQUIRED_QT_VERSION} CONFIG QUIET)
 find_package(Qt5Concurrent ${REQUIRED_QT_VERSION} CONFIG QUIET)
+find_package(Elektra)
 
 if(NOT Qt5Test_FOUND)
     message(STATUS "Qt5Test not found, autotests will not be built.")
@@ -50,10 +51,7 @@ ecm_add_tests(
    LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent
 )
 
-find_package(Elektra)
-
 if (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
-    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
     include_directories(${ELEKTRA_INCLUDE_DIR})
 
     SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
@@ -70,7 +68,7 @@ if (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
             LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent ${ELEKTRA_LIBRARIES}
     )
     add_definitions(-DFEAT_ELEKTRA)
-endif (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
+endif ()
 
 target_include_directories(test_kconf_update PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../src/kconf_update)
 

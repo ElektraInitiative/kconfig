@@ -578,6 +578,11 @@ struct KConfigStaticData {
 };
 Q_GLOBAL_STATIC(KConfigStaticData, globalData)
 
+/**
+ * KDE Frameworks major version
+ */
+const int kf_major_version = 5;
+
 void KConfig::setMainConfigName(const QString &str)
 {
     globalData()->globalMainConfigName = str;
@@ -647,11 +652,6 @@ MainConfigInformation KConfig::mainConfigName()
         }
     }
 
-    /*const QString globalName = data->globalMainConfigName;
-    if (!globalName.isEmpty()) {
-        return globalName;
-    }*/ //TODO check if this is needed
-
     char * envAppName = std::getenv("KCONFIG_APP_NAME");
     if (envAppName != nullptr) {
         app_name = envAppName;
@@ -703,10 +703,10 @@ void KConfigPrivate::changeFileName(const QString &name)
             }
             fileName = file;
 
-        } else {    // Does this make sense?
+        } else {
             if (this->mBackend == nullptr) {
                 this->mBackend = KConfigBackend::create(
-                                     ElektraInfo{ name.toStdString(), 5 /* KF version*/,
+                                     ElektraInfo{ name.toStdString(), kf_major_version /* KF version*/,
                                                   mainConfigInfo.profile}
                                  );
             } else {
@@ -814,7 +814,7 @@ void KConfig::reparseConfiguration()
     }
 
     // Parse all desired files from the least to the most specific.
-    if (d->wantGlobals()) { //TODO also parse globals (should always be elektra keys)
+    if (d->wantGlobals()) {
         d->parseGlobalFiles();
     }
 
