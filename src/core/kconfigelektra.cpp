@@ -127,7 +127,7 @@ KConfigBackend::ParseInfo
 KConfigElektra::parseConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, KConfigBackend::ParseOptions options)
 {
     //TODO error handling
-    //TODO properly handle parse options (or figure out how they actually work)
+    //TODO properly handle parse options (or figure out how they actually work) (part of #10)
     //TODO read meta keys for proper key options
 
     Key parentKey = Key(read_key(), KEY_END);
@@ -202,6 +202,7 @@ bool
 KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, KConfigBackend::WriteOptions options)
 {
     //TODO merge
+//TODO write group meta (#10)
     bool onlyGlobal = options & WriteGlobal;
 
     const KEntryMapConstIterator end = entryMap.constEnd();
@@ -216,7 +217,7 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
         const KEntryKey &entryKey = it.key();
         KEntry entry = it.value();
 
-        if (entryKey.mKey.isEmpty()) { // ignore group attributes for the moment
+        if (entryKey.mKey.isEmpty()) {
             continue;
         }
 

@@ -9,7 +9,6 @@
 
 #include <kdb.hpp>
 
-using namespace kdb;
 
 class KConfigElektra : public KConfigBackend
 {
@@ -22,10 +21,10 @@ private:
     std::string read_key();
     std::string write_key();
 
-    KDB * kdb;
-    KeySet * ks;
+    kdb::KDB * kdb;
+    kdb::KeySet * ks;
 
-    static KDB open_kdb();
+    static kdb::KDB open_kdb();
 
 public:
     KConfigElektra(std::string appName, uint majorVersion, std::string profile);

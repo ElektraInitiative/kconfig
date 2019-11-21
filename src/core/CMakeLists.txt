@@ -1,17 +1,39 @@
-set(libkconfigcore_SRCS
-   kconfig.cpp
-   kconfigbase.cpp
-   kconfigdata.cpp
-   kconfiggroup.cpp
-   kconfigbackend.cpp
-   kconfigini.cpp
-   kdesktopfile.cpp
-   ksharedconfig.cpp
-   kcoreconfigskeleton.cpp
-   kauthorized.cpp
-   kemailsettings.cpp
-   kconfigwatcher.cpp
-        kconfigelektra.cpp)
+find_package(Elektra)
+
+if (ELEKTRA_FOUND)
+
+    set(libkconfigcore_SRCS
+       kconfig.cpp
+       kconfigbase.cpp
+       kconfigdata.cpp
+       kconfiggroup.cpp
+       kconfigbackend.cpp
+       kconfigini.cpp
+       kdesktopfile.cpp
+       ksharedconfig.cpp
+       kcoreconfigskeleton.cpp
+       kauthorized.cpp
+       kemailsettings.cpp
+       kconfigwatcher.cpp
+       kconfigelektra.cpp)
+
+else()
+
+    set(libkconfigcore_SRCS
+            kconfig.cpp
+            kconfigbase.cpp
+            kconfigdata.cpp
+            kconfiggroup.cpp
+            kconfigbackend.cpp
+            kconfigini.cpp
+            kdesktopfile.cpp
+            ksharedconfig.cpp
+            kcoreconfigskeleton.cpp
+            kauthorized.cpp
+            kemailsettings.cpp
+            kconfigwatcher.cpp)
+
+endif()
 
 ecm_qt_declare_logging_category(libkconfigcore_SRCS
                                 HEADER kconfig_core_log_settings.h
@@ -46,10 +68,7 @@ set_target_properties(KF5ConfigCore PROPERTIES VERSION   ${KCONFIG_VERSION_STRIN
         EXPORT_NAME ConfigCore
         )
 
-find_package(Elektra)
-
 if (ELEKTRA_FOUND)
-    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
     include_directories(${ELEKTRA_INCLUDE_DIR})
 
     SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
@@ -97,7 +116,7 @@ if (ELEKTRA_FOUND)
         )
     endif()
 
-else(ELEKTRA_FOUND)
+else()
 
     ecm_generate_headers(KConfigCore_HEADERS
             HEADER_NAMES
@@ -139,7 +158,7 @@ else(ELEKTRA_FOUND)
         )
     endif()
 
-endif (ELEKTRA_FOUND)
+endif ()
 
 install(TARGETS KF5ConfigCore EXPORT KF5ConfigTargets ${KF5_INSTALL_TARGETS_DEFAULT_ARGS})
 

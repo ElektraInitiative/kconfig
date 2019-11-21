@@ -68,11 +68,9 @@ void writeKeys(KConfig * config) {
     }
 }
 
-#define USE_ELEKTRA
-
 int main() {
 
-#ifdef USE_ELEKTRA
+#ifdef FEAT_ELEKTRA
     KConfig config(ElektraInfo{"kconf_bench", 0, "default"});
 #else
     KConfig config(QString::fromStdString("/home/felix/CLionProjects/kconfig/test/kconfig_bench_testrc"));

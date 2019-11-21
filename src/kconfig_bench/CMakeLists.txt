@@ -13,4 +13,4 @@ if (ELEKTRA_FOUND)
 
     target_link_libraries(kconf_bench ${ELEKTRA_LIBRARIES})
     add_definitions(-DFEAT_ELEKTRA)
-endif (ELEKTRA_FOUND)
+endif ()
