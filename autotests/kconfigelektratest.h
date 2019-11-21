@@ -42,6 +42,8 @@ private Q_SLOTS:
     void testKConfigElektraWrite ();
 
     void testKConfigElektraOpenSimpleName ();
+
+    void testThreewayMerge();
 };
 
 #endif //KCONFIG_KCONFIGELEKTRATEST_H

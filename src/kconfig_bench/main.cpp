@@ -8,10 +8,12 @@
 #include <random>
 #include <kconfigbackend_p.h>
 
-#define KEYS 100
+#define KEYS 101
+//#define GROUP_NAME "Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe "
+#define GROUP_NAME "Testing"
 
 void serialAccess(KConfig* config) {
-    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+    KConfigGroup longGroup = config->group(GROUP_NAME);
 
     for(int i = 0; i < KEYS; i++) {
         QString name = QString::fromStdString("key.");
@@ -23,7 +25,7 @@ void serialAccess(KConfig* config) {
 }
 
 void randomAccess(KConfig* config) {
-    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+    KConfigGroup longGroup = config->group(GROUP_NAME);
     std::vector<int> indices;
     indices.reserve(KEYS);
 
@@ -49,7 +51,7 @@ void randomAccess(KConfig* config) {
 }
 
 void deleteKeys(KConfig * config, int keys) {
-    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+    KConfigGroup longGroup = config->group(GROUP_NAME);
 
     for (int j = 0; j < keys; ++j) {
         QString name = QString::fromStdString("key.");
@@ -59,7 +61,7 @@ void deleteKeys(KConfig * config, int keys) {
 }
 
 void writeKeys(KConfig * config) {
-    KConfigGroup longGroup = config->group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+    KConfigGroup longGroup = config->group(GROUP_NAME);
 
     for(int i = 0; i < KEYS; i++) {
         QString name = QString::fromStdString("key.");
@@ -92,7 +94,7 @@ int main() {
 
         test.writeEntry("test", "test");
         test.writeEntry("keys", KEYS);
-        KConfigGroup longGroup = config.group("Group with very long group name that should not be necessary but could possibly mess with lookup times...apwj rewuihrt 9uwhh weuihui aehtuihe ");
+        KConfigGroup longGroup = config.group(GROUP_NAME);
 
         deleteKeys(&config, keys);
 
