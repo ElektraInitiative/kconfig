@@ -103,19 +103,19 @@ void KConfigElektraTest::cleanupTestCase ()
 
     KeySet ks;
 
-    kdb_local.get(ks, "user/sw/org/kde/elektratest/#0/current/");
+    kdb_local.get(ks, "user/sw/org/kde/elektratest/");
 
-    ks.cut(Key("user/sw/org/kde/elektratest/#0/current/", KEY_END));
+    ks.cut(Key("user/sw/org/kde/elektratest/", KEY_END));
 
-    kdb_local.set(ks, "user/sw/org/kde/elektratest/#0/current/");
+    kdb_local.set(ks, "user/sw/org/kde/elektratest/");
 
     ks.clear();
 
-    kdb_local.get(ks, "user/sw/org/kde/elektratestglobals/#0/current/");
+    kdb_local.get(ks, "user/sw/org/kde/elektratestglobals/");
 
-    ks.cut(Key("user/sw/org/kde/elektratestglobals/#0/current/", KEY_END));
+    ks.cut(Key("user/sw/org/kde/elektratestglobals/", KEY_END));
 
-    kdb_local.set(ks, "user/sw/org/kde/elektratestglobals/#0/current/");
+    kdb_local.set(ks, "user/sw/org/kde/elektratestglobals/");
 
     kdb_local.close();
 }
@@ -190,6 +190,71 @@ void KConfigElektraTest::testKConfigElektraOpenSimpleName ()
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Still in"), "Progress");
     QCOMPARE(ks.get<std::string>("user/sw/org/kde/elektratest/#5/current/Test With Space/Subgroup/This subgroup is"),
              "also being tested!");
+}
+
+static void setCommonData(KConfig* config) {
+    KConfigGroup group = config->group("Common");
+
+    group.writeEntry("Test1", "blah blah blah");
+    group.writeEntry("Test2", "turn it up");
+}
+
+void KConfigElektraTest::testThreewayMerge ()
+{
+    KConfig a (ElektraInfo {"elektratest", 1});
+    KConfig b (ElektraInfo {"elektratest", 1});
+
+    setCommonData(&a);
+    setCommonData(&b);
+
+    KConfigGroup group1 = a.group("Specific 1");
+
+    group1.writeEntry("Test1", "the tribe");
+    group1.writeEntry("Test2", "namaste");
+
+    KConfigGroup group2 = b.group("Specific 2");
+
+    group2.writeEntry("Test1", "shiva");
+    group2.writeEntry("Test2", "mandala");
+
+    KConfigGroup conflictGroupA = a.group("Conflict");
+
+    conflictGroupA.writeEntry("Test1", "oracle");
+    conflictGroupA.writeEntry("Test2", "the people");
+
+    KConfigGroup configGroupB = b.group("Conflict");
+
+    configGroupB.writeEntry("Test1", "neverland");
+    configGroupB.writeEntry("Test2", "opa");
+
+    a.sync();
+
+    //TODO assert B
+
+    b.sync();
+
+    KConfig config (ElektraInfo {"elektratest", 1});
+
+    KConfigGroup group = config.group("Common");
+
+    QCOMPARE(group.readEntry("Test1"), "blah blah blah");
+    QCOMPARE(group.readEntry("Test2"), "turn it up");
+
+    group = config.group("Specific 1");
+
+    QCOMPARE(group.readEntry("Test1"), "the tribe");
+    QCOMPARE(group.readEntry("Test2"), "namaste");
+
+    group = config.group("Specific 2");
+
+    QCOMPARE(group.readEntry("Test1"), "shiva");
+    QCOMPARE(group.readEntry("Test2"), "mandala");
+
+    group = config.group("Conflict");
+
+    QCOMPARE(group.readEntry("Test1"), "neverland");
+    QCOMPARE(group.readEntry("Test2"), "opa");
+
 }
 
 #endif //FEAT_ELEKTRA
