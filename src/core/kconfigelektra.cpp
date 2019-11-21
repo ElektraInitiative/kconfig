@@ -201,6 +201,11 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
     Key writeKey = Key(this->write_key(), KEY_END);
     Key mergeRoot = Key(this->read_key(), KEY_END);
 
+    KeySet ours;
+    KeySet theirs;
+
+    theirs.copy(*this->ks);
+
     KeySet baseCut = this->ks->cut(mergeRoot);
 
     /*std::cout << std::endl << "Base: " << std::endl;
@@ -216,11 +221,7 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
     }*/
 
-    KeySet ours;
-    KeySet theirs;
-
     ours.copy(baseCut);
-    theirs.copy(baseCut);
 
     for (KEntryMapConstIterator it = entryMap.constBegin(); it != end; ++it) {
         const KEntryKey &entryKey = it.key();
