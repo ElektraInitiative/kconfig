@@ -23,7 +23,7 @@
 #include <QFont>
 #include <QtTestGui>
 
-#ifdef false
+#if false
 #ifdef FEAT_ELEKTRA
 #include <kdb.hpp>
 #endif
