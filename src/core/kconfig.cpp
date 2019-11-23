@@ -856,8 +856,37 @@ void KConfigPrivate::parseGlobalFiles()
 #else
 void KConfigPrivate::parseGlobalFiles()
 {
-    //TODO fix profile
-    QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(ElektraInfo {"kdeglobals", 5, "current"});
+    std::string profile = "current";
+
+    char * envProfile = std::getenv("KCONFIG_APP_GLOBALS_PROFILE");
+    if (envProfile != nullptr) {
+        profile = envProfile;
+    } else {
+        envProfile = std::getenv("KCONFIG_APP_PROFILE");
+        if (envProfile != nullptr) {
+            profile = envProfile;
+        }
+    }
+
+    if (QCoreApplication::instance() != nullptr) {
+
+        KConfigStaticData* data = globalData();
+        if (data->appArgs.isEmpty())
+            data->appArgs = QCoreApplication::arguments();
+
+        const QStringList args = data->appArgs;
+
+        for (int i = 1; i < args.count(); ++i) {
+            if (args.at(i) == QLatin1String("--elektra-profile") && i < args.count() - 1) {
+                profile = args.at(i + 1).toStdString();
+            } else if (args.at(i) == QLatin1String("--elektra-global-profile") && i < args.count() - 1) {
+                profile = args.at(i + 1).toStdString();
+                break;
+            }
+        }
+    }
+
+    QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(ElektraInfo {"kdeglobals", 5, profile});
     backend->parseConfig(nullptr, entryMap, KConfigBackend::ParseGlobal | KConfigBackend::ParseExpansions);
 }
 #endif //FEAT_ELEKTRA
