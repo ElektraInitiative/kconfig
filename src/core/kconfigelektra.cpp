@@ -13,44 +13,6 @@
 
 using namespace kdb;
 
-/**
- * Necessary because kconfig only loads configuration if a file exists, if the file does not exist, nothing is loaded.
- *
- * It is possible that no user file exists, but a system file exists. If we were to simply use the user namespace,
- * the system keys would be ignored.
- *
- * @param ks
- * @return
- */
-static std::string findLowestKeyspace(KeySet* ks)
-{
-    int currentNameSpace = 0;
-    std::string nameSpace;
-    for (KeySetIterator iterator = ks->begin(); iterator < ks->end(); iterator++) {
-        std::string current = iterator.get().getNamespace();
-
-        if (current == "system") {
-            if (currentNameSpace < 1) {
-                currentNameSpace = 1;
-                nameSpace = "system";
-            }
-        } else if (current == "user") {
-            if (currentNameSpace < 10) {
-                currentNameSpace = 10;
-                nameSpace = "user";
-            }
-        } else if (current == "dir") {
-            if (currentNameSpace < 100) {
-                currentNameSpace = 100;
-                nameSpace = "dir";
-            }
-        } else {
-            std::cerr << "unknown namespace " << current << std::endl;
-        }
-    }
-
-    return nameSpace;
-}
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(
                 appName)), major_version(majorVersion), profile(std::move(profile))
@@ -83,7 +45,7 @@ KConfigElektra::~KConfigElektra()
  * @param parent the iterator of the parent key
  * @param child the iterator of the child key
  */
-inline void traverseIterators(Key::iterator *parent, Key::iterator *child)
+inline void traverseIterators(Key::iterator &parent, Key::iterator &child)
 {
     /*
      * First item of iterator seems to be namespace, as namespaces can differ with cascading keys, we skip these.
@@ -91,7 +53,7 @@ inline void traverseIterators(Key::iterator *parent, Key::iterator *child)
      *
      * Loop as long as the paths are the same and iterate through the path segments.
      */
-    for ((*parent)++, (*child)++; parent->get() == child->get(); (*parent)++, (*child)++) {}
+    for (parent++, child++; parent.get() == child.get(); parent++, child++) {}
 }
 
 struct KConfigKey {
@@ -99,13 +61,13 @@ struct KConfigKey {
     std::string key;
 };
 
-inline KConfigKey elektraKeyToKConfigKey(Key::iterator *key, Key::iterator *end)
+inline KConfigKey elektraKeyToKConfigKey(Key::iterator key, Key::iterator end)
 {
     std::ostringstream group;
     std::string key_name;
     bool first = true;
 
-    for (; (*key) != (*end); (*key)++) {
+    for (; key.get() != end.get(); key++) {
         if (!key_name.empty()) {
             if (!first) {
                 group << "\x1d";
@@ -114,7 +76,7 @@ inline KConfigKey elektraKeyToKConfigKey(Key::iterator *key, Key::iterator *end)
             }
             group << key_name;
         }
-        key_name = key->get();
+        key_name = key.get();
     }
 
     return KConfigKey{
@@ -136,9 +98,10 @@ KConfigElektra::parseConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
 
     this->kdb->get(*this->ks, parentKey);
 
-    for (auto iterator = this->ks->cbegin(); iterator != this->ks->cend(); iterator++) {
+    for(const auto &key: *this->ks) {
+    //for (auto iterator = this->ks->cbegin(); iterator != this->ks->cend(); iterator++) {
 
-        Key key = iterator.get();
+        //Key key = iterator.get();
 
         if (!key.isBelowOrSame(parentKey)) {
             continue;
@@ -168,11 +131,11 @@ KConfigElektra::parseConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
 
             auto parentIter = parentKey.begin();
             auto childIter = key.begin();
-            traverseIterators(&parentIter, &childIter);
+            traverseIterators(parentIter, childIter);
 
             auto childEnd = key.end();
 
-            auto configKey = elektraKeyToKConfigKey(&childIter, &childEnd);
+            auto configKey = elektraKeyToKConfigKey(childIter, childEnd);
 
             entryMap.setEntry(
                 QByteArray::fromStdString(configKey.group),
@@ -186,16 +149,21 @@ KConfigElektra::parseConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
     return ParseOk;
 }
 
-inline std::string kConfigGroupToElektraKey(std::string group, const std::string &keyname)
+inline Key kConfigGroupToElektraKey(const Key &writeKey, const std::string group, const std::string &keyname)
 {
-    if (group == "<default>" || group.empty()) {
-        return keyname;
-    } else {
-        std::replace(group.begin(), group.end(), '\x1d', '/');
+    Key key (writeKey.dup());
+    if (!(group == "<default>" || group.empty())) {
+        std::stringstream strstream(group);
+        std::string tmp;
 
-        return group.append("/")
-               .append(keyname);
+        while (std::getline(strstream, tmp, '\x1d')) {
+            key.addBaseName(tmp);
+        }
     }
+
+    key.addBaseName(keyname);
+
+    return key;
 }
 
 bool
@@ -226,18 +194,15 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
             continue;
         }
 
-        std::string eKeyName = write_key.getFullName() + "/"
-                               + kConfigGroupToElektraKey(entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
+        Key eKey = kConfigGroupToElektraKey(write_key, entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
 
         if (entry.bDeleted || entry.mValue.isEmpty()) {
-            this->ks->cut(Key(eKeyName, KEY_END));
+            this->ks->cut(eKey);
 
             continue;
         }
 
         if (entry.bDirty) {
-
-            Key eKey = Key(eKeyName, KEY_END);
             eKey.set(it.value().mValue.toStdString());
             this->ks->append(eKey);
         }
