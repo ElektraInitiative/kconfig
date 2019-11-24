@@ -294,8 +294,8 @@ bool KDesktopFile::tryExec() const
 
     if (!list.isEmpty()) {
         for (QStringList::ConstIterator it = list.begin();
-                it != list.end();
-                ++it) {
+             it != list.end();
+             ++it) {
             if (!KAuthorized::authorize((*it).trimmed())) {
                 return false;
             }

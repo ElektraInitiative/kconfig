@@ -26,14 +26,22 @@
 #include <QObject>
 #include <QString>
 #include <QExplicitlySharedDataPointer>
+#include <utility>
 
 #include <kconfigcore_export.h>
 #include <kconfigbase.h>
+
 class KConfigBackendPrivate;
 
 class KEntryMap;
+
 class QFile;
+
 class QByteArray;
+
+#ifdef FEAT_ELEKTRA
+struct ElektraInfo;
+#endif //FEAT_ELEKTRA
 
 /**
  * \class KConfigBackend kconfigbackend_p.h <KConfigBackend>
@@ -64,6 +72,12 @@ public:
     static QExplicitlySharedDataPointer<KConfigBackend> create(const QString &fileName = QString(),
             const QString &system = QString());
 
+#ifdef FEAT_ELEKTRA
+
+    static QExplicitlySharedDataPointer<KConfigBackend> create(const ElektraInfo &elektraInfo);
+
+#endif
+
     /**
      * Registers mappings from directories/files to configuration systems
      *
@@ -85,6 +99,7 @@ public:
         ParseDefaults = 2, /// entries should be marked as @em default
         ParseExpansions = 4 /// entries are allowed to be marked as @em expandable
     };
+
     Q_FLAG(ParseOption)
     /// @typedef typedef QFlags<ParseOption> ParseOptions
     Q_DECLARE_FLAGS(ParseOptions, ParseOption)
@@ -93,6 +108,7 @@ public:
     enum WriteOption {
         WriteGlobal = 1 /// only write entries marked as "global"
     };
+
     Q_FLAG(WriteOption)
     /// @typedef typedef QFlags<WriteOption> WriteOptions
     Q_DECLARE_FLAGS(WriteOptions, WriteOption)
@@ -134,6 +150,7 @@ public:
      * @return @c true if the configuration is writable, @c false if it is immutable
      */
     virtual bool isWritable() const = 0;
+
     /**
      * When isWritable() returns @c false, return an error message to
      * explain to the user why saving configuration will not work.
@@ -144,12 +161,14 @@ public:
      *          object not being writable
      */
     virtual QString nonWritableErrorMessage() const = 0;
+
     /**
      * @return the read/write status of the configuration object
      *
      * @see KConfigBase::AccessMode
      */
     virtual KConfigBase::AccessMode accessMode() const = 0;
+
     /**
      * Create the enclosing object of the configuration object
      *
@@ -171,10 +190,12 @@ public:
      * Lock the file
      */
     virtual bool lock() = 0;
+
     /**
      * Release the lock on the file
      */
     virtual void unlock() = 0;
+
     /**
      * @return @c true if the file is locked, @c false if it is not locked
      */
@@ -183,8 +204,23 @@ public:
     /** @return the absolute path to the object */
     QString filePath() const;
 
+    /**
+     * Returns a unique global identifier of the backend for the use with @see KSharedConfig.
+     *
+     * The identifier can be a path or an URI with any arbitrary scheme. Config objects that
+     * open the same files/configurations MUST return the same identifier.
+     *
+     * Pre-conditions: true
+     * Post-conditions: return != null, return not empty
+     *
+     * @return a unique identifier for the underlying configuration object
+     * @author Felix Resch
+     */
+    virtual QString uniqueGlobalIdentifier() = 0;
+
 protected:
     KConfigBackend();
+
     void setLocalFilePath(const QString &file);
 
 private:
@@ -192,6 +228,7 @@ private:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::ParseOptions)
+
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::WriteOptions)
 
 #if 0 // TODO re-enable if the plugin loading code is re-enabled

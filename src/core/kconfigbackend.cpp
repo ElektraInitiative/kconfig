@@ -31,6 +31,7 @@
 
 #include "kconfigini_p.h"
 #include "kconfigdata.h"
+#include "kconfigelektra_p.h"
 
 typedef QExplicitlySharedDataPointer<KConfigBackend> BackendPtr;
 
@@ -99,3 +100,11 @@ void KConfigBackend::setLocalFilePath(const QString &file)
 {
     d->localFileName = file;
 }
+
+#ifdef FEAT_ELEKTRA
+QExplicitlySharedDataPointer<KConfigBackend> KConfigBackend::create(const ElektraInfo& elektraInfo)
+{
+    auto* elektra = new KConfigElektra(elektraInfo.app_name, elektraInfo.major_version, elektraInfo.profile);
+    return BackendPtr(elektra);
+}
+#endif //FEAT_ELEKTRA

@@ -63,7 +63,10 @@ T * perThreadGlobalStatic()
 }
 
 // Q_GLOBAL_STATIC(GlobalSharedConfigList, globalSharedConfigList), but per thread:
-static GlobalSharedConfigList *globalSharedConfigList() { return perThreadGlobalStatic<GlobalSharedConfigList>(); }
+static GlobalSharedConfigList *globalSharedConfigList()
+{
+    return perThreadGlobalStatic<GlobalSharedConfigList>();
+}
 
 void _k_globalMainConfigSync()
 {
@@ -73,6 +76,7 @@ void _k_globalMainConfigSync()
     }
 }
 
+#ifndef FEAT_ELEKTRA
 KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
         OpenFlags flags,
         QStandardPaths::StandardLocation resType)
@@ -92,8 +96,8 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 
     for (auto cfg :  qAsConst(*list)) {
         if (cfg->name() == fileName &&
-                cfg->d_ptr->openFlags == flags &&
-                cfg->locationType() == resType
+            cfg->d_ptr->openFlags == flags &&
+            cfg->locationType() == resType
 //                cfg->backend()->type() == backend
            ) {
             return KSharedConfigPtr(cfg);
@@ -120,6 +124,64 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 
     return ptr;
 }
+#else
+KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
+        OpenFlags flags,
+        QStandardPaths::StandardLocation resType)
+{
+    auto mainConfigInfo = KConfig::mainConfigName();
+    bool useElektra = false;
+
+    QString fileName(_fileName);
+    GlobalSharedConfigList *list = globalSharedConfigList();
+    if (fileName.isEmpty() && !flags.testFlag(KConfig::SimpleConfig)) {
+        // Determine the config file name that KConfig will make up (see KConfigPrivate::changeFileName)
+        fileName = QString::fromStdString(mainConfigInfo.getUrl());
+        useElektra = true;
+    }
+
+    if (!list->wasTestModeEnabled && QStandardPaths::isTestModeEnabled()) {
+        list->wasTestModeEnabled = true;
+        list->clear();
+        list->mainConfig = nullptr;
+    }
+
+    for (auto cfg :  qAsConst(*list)) {
+        if (cfg->underlyingConfigurationObject() == fileName &&
+            cfg->d_ptr->openFlags == flags &&
+            cfg->locationType() == resType
+//                cfg->backend()->type() == backend
+           ) {
+            return KSharedConfigPtr(cfg);
+        }
+    }
+
+    KSharedConfigPtr ptr;
+    if (mainConfigInfo.use_elektra && useElektra) {
+        ptr = KSharedConfigPtr(new KSharedConfig(mainConfigInfo, flags, resType));
+    } else {
+        ptr = KSharedConfigPtr(new KSharedConfig(fileName, flags, resType));
+    }
+
+    if (_fileName.isEmpty() && flags == FullConfig && resType == QStandardPaths::GenericConfigLocation) {
+        list->mainConfig = ptr;
+
+        const bool isMainThread = !qApp || QThread::currentThread() == qApp->thread();
+        static bool userWarned = false;
+        if (isMainThread && !userWarned) {
+            userWarned = true;
+            const bool isReadOnly = qEnvironmentVariableIsEmpty("KDE_HOME_READONLY");
+            if (isReadOnly && QCoreApplication::applicationName() != QLatin1String("kdialog")) {
+                if (ptr->group("General").readEntry(QStringLiteral("warn_unwritable_config"), true)) {
+                    ptr->isConfigWritable(true);
+                }
+            }
+        }
+    }
+
+    return ptr;
+}
+#endif //FEAT_ELEKTRA
 
 KSharedConfig::KSharedConfig(const QString &fileName,
                              OpenFlags flags,
@@ -147,3 +209,11 @@ const KConfigGroup KSharedConfig::groupImpl(const QByteArray &groupName) const
     const KSharedConfigPtr ptr(const_cast<KSharedConfig *>(this));
     return KConfigGroup(ptr, groupName.constData());
 }
+
+#ifdef FEAT_ELEKTRA
+KSharedConfig::KSharedConfig(MainConfigInformation configInformation, KConfig::OpenFlags mode,
+                             QStandardPaths::StandardLocation res): KConfig(configInformation.toElektraInfo(), mode, res)
+{
+    globalSharedConfigList()->append(this);
+}
+#endif //FEAT_ELEKTRA
