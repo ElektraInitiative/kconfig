@@ -26,7 +26,11 @@ KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::stri
 
     this->kdb->get(*this->ks, parentKey);
 
-    setLocalFilePath(QString::fromStdString(parentKey.getString()));
+#ifdef _WIN32
+    setLocalFilePath(QString::fromStdString("NUL")); //NUL behaves like /dev/null on windows
+#else
+    setLocalFilePath(QString::fromStdString("/dev/null"));
+#endif
 }
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion) :
@@ -246,7 +250,11 @@ void KConfigElektra::setFilePath(const QString &file)
 
     this->kdb->get(*this->ks, parentKey);
 
-    setLocalFilePath(QString::fromStdString(parentKey.getString()));
+#ifdef _WIN32
+    setLocalFilePath(QString::fromStdString("NUL")); //NUL behaves like /dev/null on windows
+#else
+    setLocalFilePath(QString::fromStdString("/dev/null"));
+#endif
 }
 
 bool KConfigElektra::lock()
@@ -284,7 +292,7 @@ KDB KConfigElektra::open_kdb()
 }
 
 /**
- * Uses the format "elektra:/<app_name>/<major_version>/profile"
+ * Uses the format "elektra://sw/org/kde/<app_name>/<major_version>/profile"
  * @return
  */
 QString KConfigElektra::uniqueGlobalIdentifier()
@@ -292,9 +300,9 @@ QString KConfigElektra::uniqueGlobalIdentifier()
     std::string url;
 
     url.reserve(this->app_name.size() + this->profile.size() + 4 /* max assumed version length */ +
-                11 /* url preface and filling chars */);
+                23 /* url preface and filling chars */);
 
-    url += "elektra:/" + this->app_name + "/" +
+    url += "elektra://sw/org/kde/" + this->app_name + "/" +
            std::to_string(this->major_version) + "/" + this->profile;
 
     return QString::fromStdString(url);

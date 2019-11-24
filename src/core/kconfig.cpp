@@ -1226,9 +1226,9 @@ std::string MainConfigInformation::getUrl()
     if (!this->valid)
         return url;
     if (this->use_elektra) {
-        url.reserve(this->app_or_file_name.size() + this->profile.size() + 4 /* max assumed version length */ + 0 /* url preface and filling chars */);
+        url.reserve(this->app_or_file_name.size() + this->profile.size() + 4 /* max assumed version length */ + 23 /* url preface and filling chars */);
 
-        url += "elektra:/" + this->app_or_file_name + "/" +
+        url += "elektra://sw/org/kde/" + this->app_or_file_name + "/" +
                std::to_string(this->major_version) + "/" + this->profile;
     } else {
         url.append(this->app_or_file_name);
