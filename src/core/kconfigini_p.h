@@ -31,7 +31,7 @@ class QIODevice;
 
 class KConfigIniBackend : public KConfigBackend
 {
-Q_OBJECT
+    Q_OBJECT
 private:
     QLockFile *lockFile;
 
@@ -77,6 +77,9 @@ protected:
     void writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map);
     void writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map,
                       bool defaultGroup, bool &firstEntry);
+
+public:
+    QString uniqueGlobalIdentifier() override;
 };
 
 #endif // KCONFIGINI_P_H
