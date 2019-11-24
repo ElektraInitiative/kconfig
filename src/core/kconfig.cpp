@@ -623,11 +623,11 @@ MainConfigInformation KConfig::mainConfigName()
     for (int i = 1; i < args.count(); ++i) {
         if (args.at(i) == QLatin1String("--config") && i < args.count() - 1) {
             return MainConfigInformation {args.at(i + 1).toStdString()};
-        } else if (args.at(i) == QLatin1String("--elektra_app_name") && i < args.count() - 1) {
+        } else if (args.at(i) == QLatin1String("--kconfig-app_name") && i < args.count() - 1) {
             app_name = args.at(i + 1).toStdString();
-        } else if (args.at(i) == QLatin1String("--elektra_profile") && i < args.count() - 1) {
+        } else if (args.at(i) == QLatin1String("--kconfig-app-profile") && i < args.count() - 1) {
             profile = args.at(i + 1).toStdString();
-        } else if (args.at(i) == QLatin1String("--elektra-version") && i < args.count() - 1) {
+        } else if (args.at(i) == QLatin1String("--kconfig-app-major-version") && i < args.count() - 1) {
             major_version = args.at(i + 1).toInt();
         }
     }
@@ -858,7 +858,7 @@ void KConfigPrivate::parseGlobalFiles()
 {
     std::string profile = "current";
 
-    char * envProfile = std::getenv("KCONFIG_APP_GLOBALS_PROFILE");
+    char * envProfile = std::getenv("KCONFIG_GLOBALS_PROFILE");
     if (envProfile != nullptr) {
         profile = envProfile;
     } else {
@@ -877,9 +877,9 @@ void KConfigPrivate::parseGlobalFiles()
         const QStringList args = data->appArgs;
 
         for (int i = 1; i < args.count(); ++i) {
-            if (args.at(i) == QLatin1String("--elektra-profile") && i < args.count() - 1) {
+            if (args.at(i) == QLatin1String("--elektra-app-profile") && i < args.count() - 1) {
                 profile = args.at(i + 1).toStdString();
-            } else if (args.at(i) == QLatin1String("--elektra-global-profile") && i < args.count() - 1) {
+            } else if (args.at(i) == QLatin1String("--elektra-globals-profile") && i < args.count() - 1) {
                 profile = args.at(i + 1).toStdString();
                 break;
             }
