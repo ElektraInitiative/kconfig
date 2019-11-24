@@ -736,6 +736,7 @@ void KConfigPrivate::changeFileName(const QString &name)
                 } //no need to change anything
             }
         } else {
+            qWarning() << "Invalid state reached!";
             return; //TODO handle error
         }
 
