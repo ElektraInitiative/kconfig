@@ -210,6 +210,9 @@ public:
      * The identifier can be a path or an URI with any arbitrary scheme. Config objects that
      * open the same files/configurations MUST return the same identifier.
      *
+     * Pre-conditions: true
+     * Post-conditions: return != null, return not empty
+     *
      * @return a unique identifier for the underlying configuration object
      * @author Felix Resch
      */
