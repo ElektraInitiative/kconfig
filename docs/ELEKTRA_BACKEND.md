@@ -5,7 +5,7 @@ The Elektra backend is intended to replace the INI Backend by passing the parsin
 
 ## Running a program with the Elektra backend
 
-We have currently tested this in Arch Linux (release 2019.11.01) and OpenSUSE (tumbleweed 84.87.20191025) only
+We have currently tested this in Arch Linux (release 2019.11.01) and OpenSUSE (tumbleweed 84.87.20191025) only.
 
 **Prerequisite**
 
@@ -59,7 +59,7 @@ You can get specific values by using `kdb get`:
 kdb get "user/sw/org/kde/kate/#19/current/KTextEditor Renderer/Show Indentation Lines"
 ```
 
-And you can also sat that key to another value:
+And you can also set that key to another value:
 
 ```
 kdb set "user/sw/org/kde/kate/#19/current/KTextEditor Renderer/Show Indentation Lines" true
@@ -70,7 +70,7 @@ kdb set "user/sw/org/kde/kate/#19/current/KTextEditor Renderer/Show Indentation 
 ### Limitations
 
 - Only tested with `kate` and `dolphin`
-- Configurations with absolute paths are still loaded using the Ini Backend
+- Configurations with absolute paths are still loaded using the INI backend
 
 ### Tests
 
