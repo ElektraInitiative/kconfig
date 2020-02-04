@@ -62,7 +62,7 @@ if (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
             ../src/core/kconfigdata.cpp
             ../src/core/kconfigbackend.cpp
             ../src/core/kconfigini.cpp
-            ../cmake-build-debug/src/core/kconfig_core_log_settings.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/../src/core/kconfig_core_log_settings.cpp
             TEST_NAME kconfigelektra
             NAME_PREFIX kconfigcore-
             LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent ${ELEKTRA_LIBRARIES}
