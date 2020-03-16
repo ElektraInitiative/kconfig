@@ -64,6 +64,21 @@ void KConfigSkeletonItem::setGroup(const QString &_group)
     mGroup = _group;
 }
 
+void KConfigSkeletonItem::setGroup(const KConfigGroup &cg)
+{
+    Q_D(KConfigSkeletonItem);
+    d->mConfigGroup = cg;
+}
+
+KConfigGroup KConfigSkeletonItem::configGroup(KConfig *config) const
+{
+    Q_D(const KConfigSkeletonItem);
+    if (d->mConfigGroup.isValid()) {
+        return d->mConfigGroup;
+    }
+    return KConfigGroup(config, mGroup);
+}
+
 QString KConfigSkeletonItem::group() const
 {
     return mGroup;
@@ -205,7 +220,13 @@ QVariant KPropertySkeletonItem::property() const
 void KPropertySkeletonItem::setProperty(const QVariant &p)
 {
     Q_D(KPropertySkeletonItem);
+    if (d->mReference == p) {
+        return;
+    }
     d->mReference = p;
+    if (d->mNotifyFunction) {
+        d->mNotifyFunction();
+    }
 }
 
 bool KPropertySkeletonItem::isEqual(const QVariant &p) const
@@ -217,7 +238,7 @@ bool KPropertySkeletonItem::isEqual(const QVariant &p) const
 void KPropertySkeletonItem::readConfig(KConfig *)
 {
     Q_D(KPropertySkeletonItem);
-    d->mReference = d->mObject->property(d->mPropertyName.constData());
+    setProperty(d->mObject->property(d->mPropertyName.constData()));
     d->mLoadedValue = d->mReference;
 }
 
@@ -231,19 +252,31 @@ void KPropertySkeletonItem::writeConfig(KConfig *)
 void KPropertySkeletonItem::readDefault(KConfig *)
 {
     Q_D(KPropertySkeletonItem);
-    d->mReference = d->mConstDefaultValue;
+    setProperty(d->mConstDefaultValue);
 }
 
 void KPropertySkeletonItem::setDefault()
 {
     Q_D(KPropertySkeletonItem);
-    d->mReference = d->mDefaultValue;
+    setProperty(d->mDefaultValue);
 }
 
 void KPropertySkeletonItem::swapDefault()
 {
     Q_D(KPropertySkeletonItem);
+    if (d->mReference == d->mDefaultValue) {
+        return;
+    }
     std::swap(d->mReference, d->mDefaultValue);
+    if (d->mNotifyFunction) {
+        d->mNotifyFunction();
+    }
+}
+
+void KPropertySkeletonItem::setNotifyFunction(const std::function<void ()> &impl)
+{
+    Q_D(KPropertySkeletonItem);
+    d->mNotifyFunction = impl;
 }
 
 KCoreConfigSkeleton::ItemString::ItemString(const QString &_group, const QString &_key,
@@ -258,7 +291,7 @@ KCoreConfigSkeleton::ItemString::ItemString(const QString &_group, const QString
 void KCoreConfigSkeleton::ItemString::writeConfig(KConfig *config)
 {
     if (mReference != mLoadedValue) { // WABA: Is this test needed?
-        KConfigGroup cg(config, mGroup);
+        KConfigGroup cg = configGroup(config);
         if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
             cg.revertToDefault(mKey, writeFlags());
         } else if (mType == Path) {
@@ -274,7 +307,7 @@ void KCoreConfigSkeleton::ItemString::writeConfig(KConfig *config)
 
 void KCoreConfigSkeleton::ItemString::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
 
     if (mType == Path) {
         mReference = cg.readPathEntry(mKey, mDefault);
@@ -329,7 +362,7 @@ KCoreConfigSkeleton::ItemUrl::ItemUrl(const QString &_group, const QString &_key
 void KCoreConfigSkeleton::ItemUrl::writeConfig(KConfig *config)
 {
     if (mReference != mLoadedValue) { // WABA: Is this test needed?
-        KConfigGroup cg(config, mGroup);
+        KConfigGroup cg = configGroup(config);
         if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
             cg.revertToDefault(mKey, writeFlags());
         } else {
@@ -341,7 +374,7 @@ void KCoreConfigSkeleton::ItemUrl::writeConfig(KConfig *config)
 
 void KCoreConfigSkeleton::ItemUrl::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
 
     mReference = QUrl(cg.readEntry<QString>(mKey, mDefault.toString()));
     mLoadedValue = mReference;
@@ -374,7 +407,7 @@ KCoreConfigSkeleton::ItemProperty::ItemProperty(const QString &_group,
 
 void KCoreConfigSkeleton::ItemProperty::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -405,7 +438,7 @@ KCoreConfigSkeleton::ItemBool::ItemBool(const QString &_group, const QString &_k
 
 void KCoreConfigSkeleton::ItemBool::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -436,7 +469,7 @@ KCoreConfigSkeleton::ItemInt::ItemInt(const QString &_group, const QString &_key
 
 void KCoreConfigSkeleton::ItemInt::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     if (mHasMin) {
         mReference = qMax(mReference, mMin);
@@ -501,7 +534,7 @@ KCoreConfigSkeleton::ItemLongLong::ItemLongLong(const QString &_group, const QSt
 
 void KCoreConfigSkeleton::ItemLongLong::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     if (mHasMin) {
         mReference = qMax(mReference, mMin);
@@ -557,6 +590,19 @@ void KCoreConfigSkeleton::ItemLongLong::setMaxValue(qint64 v)
     mMax = v;
 }
 
+QString KCoreConfigSkeleton::ItemEnum::valueForChoice(const QString &name) const
+{
+    // HACK for BC concerns
+    // TODO KF6: remove KConfigSkeletonItemPrivate::mValues and add a value field to KCoreConfigSkeleton::ItemEnum::Choice
+    const auto inHash = d_ptr->mValues.value(name);
+    return !inHash.isEmpty() ? inHash : name;
+}
+
+void KCoreConfigSkeleton::ItemEnum::setValueForChoice(const QString &name, const QString &value)
+{
+    d_ptr->mValues.insert(name, value);
+}
+
 KCoreConfigSkeleton::ItemEnum::ItemEnum(const QString &_group, const QString &_key,
                                         qint32 &reference,
                                         const QList<Choice> &choices,
@@ -567,7 +613,7 @@ KCoreConfigSkeleton::ItemEnum::ItemEnum(const QString &_group, const QString &_k
 
 void KCoreConfigSkeleton::ItemEnum::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     if (!cg.hasKey(mKey)) {
         mReference = mDefault;
     } else {
@@ -575,8 +621,9 @@ void KCoreConfigSkeleton::ItemEnum::readConfig(KConfig *config)
         mReference = -1;
         QString tmp = cg.readEntry(mKey, QString()).toLower();
         for (QList<Choice>::ConstIterator it = mChoices.constBegin();
-             it != mChoices.constEnd(); ++it, ++i) {
-            if ((*it).name.toLower() == tmp) {
+                it != mChoices.constEnd(); ++it, ++i) {
+            QString choiceName = (*it).name;
+            if (valueForChoice(choiceName).toLower() == tmp) {
                 mReference = i;
                 break;
             }
@@ -593,11 +640,11 @@ void KCoreConfigSkeleton::ItemEnum::readConfig(KConfig *config)
 void KCoreConfigSkeleton::ItemEnum::writeConfig(KConfig *config)
 {
     if (mReference != mLoadedValue) { // WABA: Is this test needed?
-        KConfigGroup cg(config, mGroup);
+        KConfigGroup cg = configGroup(config);
         if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
             cg.revertToDefault(mKey, writeFlags());
         } else if ((mReference >= 0) && (mReference < mChoices.count())) {
-            cg.writeEntry(mKey, mChoices[mReference].name, writeFlags());
+            cg.writeEntry(mKey, valueForChoice(mChoices.at(mReference).name), writeFlags());
         } else {
             cg.writeEntry(mKey, mReference, writeFlags());
         }
@@ -625,7 +672,7 @@ KCoreConfigSkeleton::ItemUInt::ItemUInt(const QString &_group, const QString &_k
 
 void KCoreConfigSkeleton::ItemUInt::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     if (mHasMin) {
         mReference = qMax(mReference, mMin);
@@ -690,7 +737,7 @@ KCoreConfigSkeleton::ItemULongLong::ItemULongLong(const QString &_group, const Q
 
 void KCoreConfigSkeleton::ItemULongLong::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     if (mHasMin) {
         mReference = qMax(mReference, mMin);
@@ -755,7 +802,7 @@ KCoreConfigSkeleton::ItemDouble::ItemDouble(const QString &_group, const QString
 
 void KCoreConfigSkeleton::ItemDouble::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     if (mHasMin) {
         mReference = qMax(mReference, mMin);
@@ -820,7 +867,7 @@ KCoreConfigSkeleton::ItemRect::ItemRect(const QString &_group, const QString &_k
 
 void KCoreConfigSkeleton::ItemRect::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -851,7 +898,7 @@ KCoreConfigSkeleton::ItemPoint::ItemPoint(const QString &_group, const QString &
 
 void KCoreConfigSkeleton::ItemPoint::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -882,7 +929,7 @@ KCoreConfigSkeleton::ItemSize::ItemSize(const QString &_group, const QString &_k
 
 void KCoreConfigSkeleton::ItemSize::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -913,7 +960,7 @@ KCoreConfigSkeleton::ItemDateTime::ItemDateTime(const QString &_group, const QSt
 
 void KCoreConfigSkeleton::ItemDateTime::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     mReference = cg.readEntry(mKey, mDefault);
     mLoadedValue = mReference;
 
@@ -944,7 +991,7 @@ KCoreConfigSkeleton::ItemStringList::ItemStringList(const QString &_group, const
 
 void KCoreConfigSkeleton::ItemStringList::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     if (!cg.hasKey(mKey)) {
         mReference = mDefault;
     } else {
@@ -979,7 +1026,7 @@ KCoreConfigSkeleton::ItemPathList::ItemPathList(const QString &_group, const QSt
 
 void KCoreConfigSkeleton::ItemPathList::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     if (!cg.hasKey(mKey)) {
         mReference = mDefault;
     } else {
@@ -993,7 +1040,7 @@ void KCoreConfigSkeleton::ItemPathList::readConfig(KConfig *config)
 void KCoreConfigSkeleton::ItemPathList::writeConfig(KConfig *config)
 {
     if (mReference != mLoadedValue) { // WABA: Is this test needed?
-        KConfigGroup cg(config, mGroup);
+        KConfigGroup cg = configGroup(config);
         if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
             cg.revertToDefault(mKey, writeFlags());
         } else {
@@ -1013,7 +1060,7 @@ KCoreConfigSkeleton::ItemUrlList::ItemUrlList(const QString &_group, const QStri
 
 void KCoreConfigSkeleton::ItemUrlList::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     if (!cg.hasKey(mKey)) {
         mReference = mDefault;
     } else {
@@ -1035,7 +1082,7 @@ void KCoreConfigSkeleton::ItemUrlList::readConfig(KConfig *config)
 void KCoreConfigSkeleton::ItemUrlList::writeConfig(KConfig *config)
 {
     if (mReference != mLoadedValue) { // WABA: Is this test needed?
-        KConfigGroup cg(config, mGroup);
+        KConfigGroup cg = configGroup(config);
         if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
             cg.revertToDefault(mKey, writeFlags());
         } else {
@@ -1073,7 +1120,7 @@ KCoreConfigSkeleton::ItemIntList::ItemIntList(const QString &_group, const QStri
 
 void KCoreConfigSkeleton::ItemIntList::readConfig(KConfig *config)
 {
-    KConfigGroup cg(config, mGroup);
+    KConfigGroup cg = configGroup(config);
     if (!cg.hasKey(mKey)) {
         mReference = mDefault;
     } else {
@@ -1542,7 +1589,7 @@ void KConfigCompilerSignallingItem::readConfig(KConfig* c)
     QVariant oldValue = mItem->property();
     mItem->readConfig(c);
     //readConfig() changes mIsImmutable, update it here as well
-    KConfigGroup cg(c, mGroup);
+    KConfigGroup cg = configGroup(c);
     readImmutability(cg);
     if (!mItem->isEqual(oldValue)) {
         invokeNotifyFunction();
@@ -1553,7 +1600,7 @@ void KConfigCompilerSignallingItem::readDefault(KConfig* c)
 {
     mItem->readDefault(c);
     //readDefault() changes mIsImmutable, update it here as well
-    KConfigGroup cg(c, mGroup);
+    KConfigGroup cg = configGroup(c);
     readImmutability(cg);
 }
 
@@ -1586,4 +1633,24 @@ void KConfigCompilerSignallingItem::swapDefault()
     if (!mItem->isEqual(oldValue)) {
         invokeNotifyFunction();
     }
+}
+
+void KConfigCompilerSignallingItem::setWriteFlags(KConfigBase::WriteConfigFlags flags)
+{
+    mItem->setWriteFlags(flags);
+}
+
+KConfigBase::WriteConfigFlags KConfigCompilerSignallingItem::writeFlags() const
+{
+    return mItem->writeFlags();
+}
+
+void KConfigCompilerSignallingItem::setGroup(const KConfigGroup &cg)
+{
+    mItem->setGroup(cg);
+}
+
+KConfigGroup KConfigCompilerSignallingItem::configGroup(KConfig *config) const
+{
+    return mItem->configGroup(config);
 }

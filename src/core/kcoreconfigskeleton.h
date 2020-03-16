@@ -34,6 +34,7 @@
 #include <QStringList>
 #include <QVariant>
 #include <QUrl>
+
 class KCoreConfigSkeletonPrivate;
 
 class KConfigSkeletonItemPrivate;
@@ -80,6 +81,22 @@ public:
      * Return config file group.
      */
     QString group() const;
+
+    /**
+     * Set config file group but giving the KConfigGroup.
+     * Allow the item to be in nested groups.
+     * @since 5.68
+     */
+    void setGroup(const KConfigGroup &cg);
+
+    /**
+     * Return a KConfigGroup, the one provided by setGroup(KConfigGroup) if it's valid,
+     * or make one from @param config and item's group
+     * @sa setGroup(const QString &_group)
+     * @sa setGroup(KConfigGroup cg)
+     * @since 5.68
+     */
+    KConfigGroup configGroup(KConfig *config) const;
 
     /**
      * Set config file key.
@@ -294,6 +311,12 @@ public:
     void setDefault() override;
     /** @copydoc KConfigSkeletonItem::swapDefault() */
     void swapDefault() override;
+
+    /**
+     * Set a notify function, it will be invoked when the value of the property changes.
+     * @since 5.68
+     */
+    void setNotifyFunction(const std::function<void ()> &impl);
 };
 
 
@@ -360,7 +383,7 @@ public:
     void writeConfig(KConfig *config) override
     {
         if (mReference != mLoadedValue) { // Is this needed?
-            KConfigGroup cg(config, mGroup);
+            KConfigGroup cg = configGroup(config);
             if ((mDefault == mReference) && !cg.hasDefault(mKey)) {
                 cg.revertToDefault(mKey, writeFlags());
             } else {
@@ -430,6 +453,17 @@ public:
     QVariant property() const override;
     void setDefault() override;
     void swapDefault() override;
+    // KF6 TODO - fix this
+    // Ideally we would do this in an overload of KConfigSkeletonItem, but
+    // given we can't, I've shadowed the method. This isn't pretty, but given
+    // the docs say it should generally only be used from auto generated code,
+    // should be fine.
+    void setWriteFlags(KConfigBase::WriteConfigFlags flags);
+    KConfigBase::WriteConfigFlags writeFlags() const;
+    void setGroup(const KConfigGroup &cg);
+    KConfigGroup configGroup(KConfig *config) const;
+    // END TODO
+
 private:
     inline void invokeNotifyFunction()
     {
@@ -768,8 +802,19 @@ public:
         void writeConfig(KConfig *config) override;
 
         // Source compatibility with 4.x
+        // TODO KF6 remove
         typedef Choice Choice2;
         QList<Choice> choices2() const;
+
+        /**
+         * Returns the value for for the choice with the given name
+         */
+        QString valueForChoice(const QString &name) const;
+
+        /**
+         * Stores a choice value for name
+         */
+        void setValueForChoice(const QString &name, const QString &valueForChoice);
 
     private:
         QList<Choice> mChoices;
@@ -1573,7 +1618,7 @@ protected:
     /**
      * Perform the actual writing of the configuration file.
      * Override in derived classes to write special config values.
-     * Called from @ref writeConfig()
+     * Called from @ref save()
      */
     virtual bool usrSave();
 

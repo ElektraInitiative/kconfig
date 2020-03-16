@@ -36,9 +36,12 @@ else()
 endif()
 
 ecm_qt_declare_logging_category(libkconfigcore_SRCS
-                                HEADER kconfig_core_log_settings.h
-                                IDENTIFIER KCONFIG_CORE_LOG
-                                CATEGORY_NAME kf5.kconfig.core)
+    HEADER kconfig_core_log_settings.h
+    IDENTIFIER KCONFIG_CORE_LOG
+    CATEGORY_NAME kf5.kconfig.core
+    DESCRIPTION "KConfig Core"
+    EXPORT KCONFIG
+)
 
 configure_file(config-kconfig.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-kconfig.h )
 

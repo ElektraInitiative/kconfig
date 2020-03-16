@@ -24,9 +24,6 @@
 #include <QColor>
 #include <QFont>
 #include <QHash>
-#include <QXmlContentHandler>
-#include <QXmlInputSource>
-#include <QXmlSimpleReader>
 #include <QUrl>
 
 #include <QDebug>
@@ -37,38 +34,73 @@ void ConfigLoaderPrivate::parse(KConfigLoader *loader, QIODevice *xml)
     loader->clearItems();
 
     if (xml) {
-        QXmlInputSource source(xml);
-        QXmlSimpleReader reader;
         ConfigLoaderHandler handler(loader, this);
-        reader.setContentHandler(&handler);
-        reader.parse(&source, false);
+        handler.parse(xml);
     }
 }
 
 ConfigLoaderHandler::ConfigLoaderHandler(KConfigLoader *config, ConfigLoaderPrivate *d)
-    : QXmlDefaultHandler(),
-      m_config(config),
+    : m_config(config),
       d(d)
 {
     resetState();
 }
 
-bool ConfigLoaderHandler::startElement(const QString &namespaceURI, const QString &localName,
-                                       const QString &qName, const QXmlAttributes &attrs)
+bool ConfigLoaderHandler::parse(QIODevice *input)
 {
-    Q_UNUSED(namespaceURI)
-    Q_UNUSED(qName)
+    if (!input->open(QIODevice::ReadOnly)) {
+        qWarning() << "Impossible to open device";
+        return false;
+    }
+    QXmlStreamReader reader(input);
 
-//     qDebug() << "ConfigLoaderHandler::startElement(" << localName << qName;
-    int numAttrs = attrs.count();
-    QString tag = localName.toLower();
+    while (!reader.atEnd()) {
+        reader.readNext();
+        if (reader.hasError()) {
+            return false;
+        }
+
+        switch (reader.tokenType()) {
+        case QXmlStreamReader::StartElement:
+            if (!startElement(reader.name(), reader.attributes())) {
+                return false;
+            }
+            break;
+        case QXmlStreamReader::EndElement:
+            if (!endElement(reader.name())) {
+                return false;
+            }
+            break;
+        case QXmlStreamReader::Characters:
+            if (!reader.isWhitespace() && !reader.text().trimmed().isEmpty()) {
+                if (!characters(reader.text())) {
+                    return false;
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (reader.isEndDocument()) {
+        return false;
+    }
+
+    return true;
+}
+
+bool ConfigLoaderHandler::startElement(const QStringRef &localName, const QXmlStreamAttributes &attrs)
+{
+    // qDebug() << "ConfigLoaderHandler::startElement(" << localName << qName;
+    const QString tag = localName.toString().toLower();
     if (tag == QLatin1String("group")) {
         QString group;
-        for (int i = 0; i < numAttrs; ++i) {
-            QString name = attrs.localName(i).toLower();
-            if (name == QLatin1String("name")) {
+        for (const auto &attr : attrs) {
+            const QStringRef name = attr.name();
+            if (name.compare(QLatin1String("name"), Qt::CaseInsensitive) == 0) {
                 //qDebug() << "set group to" << attrs.value(i);
-                group = attrs.value(i);
+                group = attr.value().toString();
             }
         }
         if (group.isEmpty()) {
@@ -84,24 +116,24 @@ bool ConfigLoaderHandler::startElement(const QString &namespaceURI, const QStrin
             m_config->setCurrentGroup(group);
         }
     } else if (tag == QLatin1String("entry")) {
-        for (int i = 0; i < numAttrs; ++i) {
-            QString name = attrs.localName(i).toLower();
-            if (name == QLatin1String("name")) {
-                m_name = attrs.value(i).trimmed();
-            } else if (name == QLatin1String("type")) {
-                m_type = attrs.value(i).toLower();
-            } else if (name == QLatin1String("key")) {
-                m_key = attrs.value(i).trimmed();
+        for (const auto &attr : attrs) {
+            const QStringRef name = attr.name();
+            if (name.compare(QLatin1String("name"), Qt::CaseInsensitive) == 0) {
+                m_name = attr.value().trimmed().toString();
+            } else if (name.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0) {
+                m_type = attr.value().toString().toLower();
+            } else if (name.compare(QLatin1String("key"), Qt::CaseInsensitive) == 0) {
+                m_key = attr.value().trimmed().toString();
             }
         }
     } else if (tag == QLatin1String("choice")) {
         m_choice.name.clear();
         m_choice.label.clear();
         m_choice.whatsThis.clear();
-        for (int i = 0; i < numAttrs; ++i) {
-            QString name = attrs.localName(i).toLower();
-            if (name == QLatin1String("name")) {
-                m_choice.name = attrs.value(i);
+        for (const auto &attr : attrs) {
+            const QStringRef name = attr.name();
+            if (name.compare(QLatin1String("name"), Qt::CaseInsensitive) == 0) {
+                m_choice.name = attr.value().toString();
             }
         }
         m_inChoice = true;
@@ -110,72 +142,38 @@ bool ConfigLoaderHandler::startElement(const QString &namespaceURI, const QStrin
     return true;
 }
 
-bool ConfigLoaderHandler::characters(const QString &ch)
+bool ConfigLoaderHandler::characters(const QStringRef &ch)
 {
-    m_cdata.append(ch);
+    m_cdata.append(ch.toString());
     return true;
 }
 
-QString ConfigLoaderHandler::name() const
+bool ConfigLoaderHandler::endElement(const QStringRef &localName)
 {
-    return m_name;
-}
-
-void ConfigLoaderHandler::setName(const QString &name)
-{
-    m_name = name;
-}
-
-QString ConfigLoaderHandler::key() const
-{
-    return m_key;
-}
-
-void ConfigLoaderHandler::setKey(const QString &key)
-{
-    m_key = key;
-}
-
-QString ConfigLoaderHandler::type() const
-{
-    return m_type;
-}
-
-QString ConfigLoaderHandler::defaultValue() const
-{
-    return m_default;
-}
-
-bool ConfigLoaderHandler::endElement(const QString &namespaceURI,
-                                     const QString &localName, const QString &qName)
-{
-    Q_UNUSED(namespaceURI)
-    Q_UNUSED(qName)
-
 //     qDebug() << "ConfigLoaderHandler::endElement(" << localName << qName;
-    const QString tag = localName.toLower();
-    if (tag == QLatin1String("entry")) {
+    const QStringRef tag = localName;
+    if (tag.compare(QLatin1String("entry"), Qt::CaseInsensitive) == 0) {
         addItem();
         resetState();
-    } else if (tag == QLatin1String("label")) {
+    } else if (tag.compare(QLatin1String("label"), Qt::CaseInsensitive) == 0) {
         if (m_inChoice) {
             m_choice.label = m_cdata.trimmed();
         } else {
             m_label = m_cdata.trimmed();
         }
-    } else if (tag == QLatin1String("whatsthis")) {
+    } else if (tag.compare(QLatin1String("whatsthis"), Qt::CaseInsensitive) == 0) {
         if (m_inChoice) {
             m_choice.whatsThis = m_cdata.trimmed();
         } else {
             m_whatsThis = m_cdata.trimmed();
         }
-    } else if (tag == QLatin1String("default")) {
+    } else if (tag.compare(QLatin1String("default"), Qt::CaseInsensitive) == 0) {
         m_default = m_cdata.trimmed();
-    } else if (tag == QLatin1String("min")) {
+    } else if (tag.compare(QLatin1String("min"), Qt::CaseInsensitive) == 0) {
         m_min = m_cdata.toInt(&m_haveMin);
-    } else if (tag == QLatin1String("max")) {
+    } else if (tag.compare(QLatin1String("max"), Qt::CaseInsensitive) == 0) {
         m_max = m_cdata.toInt(&m_haveMax);
-    } else if (tag == QLatin1String("choice")) {
+    } else if (tag.compare(QLatin1String("choice"), Qt::CaseInsensitive) == 0) {
         m_enumChoices.append(m_choice);
         m_inChoice = false;
     }
@@ -240,7 +238,11 @@ void ConfigLoaderHandler::addItem()
         //FIXME: the split() is naive and will break on lists with ,'s in them
         //empty parts are not wanted in this case
         item = m_config->addItemStringList(m_name, *d->newStringList(),
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
                                            m_default.split(QLatin1Char(','), QString::SkipEmptyParts), m_key);
+#else
+                                           m_default.split(QLatin1Char(','), Qt::SkipEmptyParts), m_key);
+#endif
     } else if (m_type == QLatin1String("uint")) {
         KConfigSkeleton::ItemUInt *uintItem =
             m_config->addItemUInt(m_name, *d->newUint(), m_default.toUInt(), m_key);

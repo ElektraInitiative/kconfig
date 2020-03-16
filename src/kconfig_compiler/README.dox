@@ -182,6 +182,15 @@ The following options are read from the kcfgc file:
       mutator functions are generated for the options that are listed.</td>
 </tr>
 <tr>
+  <td><b>Notifiers</b></td>
+  <td>true, false or a comma separated list of options</td>
+  <td>false</td>
+  <td>If true, entries will be written with the <b>Notify</b> flag enabled,
+      so changes can be detected using <b>KConfigWatcher</b>.
+      If a list is provided, the options that are listed are written with
+      said flag.</td>
+</tr>
+<tr>
   <td><b>DefaultValueGetters</b></td>
   <td>true, false or a comma separated list of options</td>
   <td>false</td>
@@ -345,7 +354,7 @@ this allows the same Enum value names to be used in different enums. For example
 <entry name="KeepData" type="Enum">
   <choices>
     <choice name="Do">
-    <choice name="Dont">
+    <choice name="Dont" value="Don't">
   </choices>
 </entry>
 \endverbatim
@@ -360,6 +369,9 @@ will generate this public class containing the enum definition, inside the gener
     };
 \endverbatim
 
+Since 5.68, if present the <b>value</b> attribute will be used as the choice value written to the backend
+instead of the <b>name</b>, allowing to write text incompatible with enum naming.
+
 Alternatively, if <b>GlobalEnums</b> is set to true, all Enum items are defined as
 unnamed enums in the global scope of the generated class. In this case, all Enum values
 must have different names to avoid clashes. However, you can use a 'prefix' argument
@@ -371,7 +383,7 @@ is set to true, the .kcfg entry
 <entry name="KeepData" type="Enum">
   <choices prefix="Keep_">
     <choice name="Do">
-    <choice name="Dont">
+    <choice name="Dont" value="Don't">
   </choices>
 </entry>
 \endverbatim

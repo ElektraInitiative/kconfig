@@ -161,7 +161,6 @@ gen_kcfg_test_source(test12 test12_SRCS)
 ecm_add_test(TEST_NAME test12 ${test12_SRCS})
 target_link_libraries(test12 KF5::ConfigGui)
 
-
 ########### next target ###############
 
 set(test13_SRCS test13main.cpp )
@@ -171,6 +170,14 @@ gen_kcfg_test_source(test13 test13_SRCS GENERATE_MOC)
 ecm_add_test(TEST_NAME test13 ${test13_SRCS})
 target_link_libraries(test13 KF5::ConfigGui)
 
+########### next target ###############
+
+set(test_emptyentries_SRCS test_emptyentries_main.cpp )
+
+gen_kcfg_test_source(test_emptyentries test_emptyentries_SRCS GENERATE_MOC)
+
+ecm_add_test(TEST_NAME test_emptyentries ${test_emptyentries_SRCS})
+target_link_libraries(test_emptyentries KF5::ConfigGui)
 
 ########### next target ###############
 
@@ -211,6 +218,25 @@ ecm_add_test(${kconfigcompiler_test_signals_SRCS}
     LINK_LIBRARIES Qt5::Test KF5::ConfigGui
 )
 
+########### next target ###############
+
+set(test_properties_minmax_SRCS test_properties_minmax_main.cpp)
+gen_kcfg_test_source(test_properties_minmax test_properties_minmax_SRCS GENERATE_MOC)
+
+ecm_add_test(${test_properties_minmax_SRCS}
+    TEST_NAME test_properties_minmax
+    LINK_LIBRARIES KF5::ConfigGui
+)
+
+########### next target ###############
+
+set(test_param_minmax_SRCS test_param_minmax_main.cpp)
+gen_kcfg_test_source(test_param_minmax test_param_minmax_SRCS)
+
+ecm_add_test(${test_param_minmax_SRCS}
+    TEST_NAME test_param_minmax
+    LINK_LIBRARIES KF5::ConfigGui
+)
 
 ########### next target ###############
 

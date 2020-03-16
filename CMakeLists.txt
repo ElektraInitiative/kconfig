@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.5)
 
-set(KF5_VERSION "5.65.0") # handled by release scripts
+set(KF5_VERSION "5.69.0") # handled by release scripts
 project(KConfig VERSION ${KF5_VERSION})
 
 include(FeatureSummary)
-find_package(ECM 5.64.0  NO_MODULE)
-set_package_properties(ECM PROPERTIES TYPE REQUIRED DESCRIPTION "Extra CMake Modules." URL "https://projects.kde.org/projects/kdesupport/extra-cmake-modules")
+find_package(ECM 5.68.0  NO_MODULE)
+set_package_properties(ECM PROPERTIES TYPE REQUIRED DESCRIPTION "Extra CMake Modules." URL "https://commits.kde.org/extra-cmake-modules")
 feature_summary(WHAT REQUIRED_PACKAGES_NOT_FOUND FATAL_ON_MISSING_REQUIRED_PACKAGES)
 
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
-set(REQUIRED_QT_VERSION 5.11.0)
+set(REQUIRED_QT_VERSION 5.12.0)
 
 find_package(Qt5 ${REQUIRED_QT_VERSION} CONFIG REQUIRED Xml)
 option(KCONFIG_USE_GUI "Build components using Qt5Gui" ON)
@@ -104,5 +104,3 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kconfig_version.h
 
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
-
-install(FILES kconfig.categories  DESTINATION ${KDE_INSTALL_LOGGINGCATEGORIESDIR})

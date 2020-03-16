@@ -14,7 +14,6 @@ class Test10 : public KConfigSkeleton
     static Test10 *self();
     ~Test10();
 
-
     /**
       Get foo bar
     */
@@ -24,6 +23,14 @@ class Test10 : public KConfigSkeleton
       return self()->mFooBar;
     }
 
+    /**
+      Is foo bar Immutable
+    */
+    static
+    bool isFooBarImmutable()
+    {
+      return self()->isImmutable( QStringLiteral( "FooBar" ) );
+    }
 
     /**
       Get bar foo
@@ -32,6 +39,15 @@ class Test10 : public KConfigSkeleton
     QList<QUrl> barFoo()
     {
       return self()->mBarFoo;
+    }
+
+    /**
+      Is bar foo Immutable
+    */
+    static
+    bool isBarFooImmutable()
+    {
+      return self()->isImmutable( QStringLiteral( "BarFoo" ) );
     }
 
   protected:

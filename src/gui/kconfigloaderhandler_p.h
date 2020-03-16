@@ -21,27 +21,21 @@
 #ifndef KCONFIGLOADERHANDLER_P_H
 #define KCONFIGLOADERHANDLER_P_H
 
-#include <QXmlDefaultHandler>
+#include <QXmlStreamAttributes>
 
-class ConfigLoaderHandler : public QXmlDefaultHandler
+class ConfigLoaderHandler
 {
 public:
     ConfigLoaderHandler(KConfigLoader *config, ConfigLoaderPrivate *d);
-    bool startElement(const QString &namespaceURI, const QString &localName,
-                      const QString &qName, const QXmlAttributes &atts) override;
-    bool endElement(const QString &namespaceURI, const QString &localName,
-                    const QString &qName) override;
-    bool characters(const QString &ch) override;
 
-    QString name() const;
-    void setName(const QString &name);
-    QString key() const;
-    void setKey(const QString &name);
-    QString type() const;
-    QString defaultValue() const;
+    bool parse(QIODevice *input);
+
+    bool startElement(const QStringRef &localName, const QXmlStreamAttributes &attrs);
+    bool endElement(const QStringRef &localName);
+    bool characters(const QStringRef &ch);
 
 private:
-    virtual void addItem();
+    void addItem();
     void resetState();
 
     KConfigLoader *m_config;

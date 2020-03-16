@@ -16,8 +16,8 @@ class Test13 : public KConfigSkeleton
     Test13( );
     ~Test13();
 
-
     Q_PROPERTY(QUrl picturesDir READ picturesDir CONSTANT)
+    Q_PROPERTY(bool isPicturesDirImmutable READ isPicturesDirImmutable CONSTANT)
     /**
       Get picturesDir
     */
@@ -27,17 +27,26 @@ class Test13 : public KConfigSkeleton
     }
 
     /**
+      Is picturesDir Immutable
+    */
+    bool isPicturesDirImmutable() const
+    {
+      return isImmutable( QStringLiteral( "picturesDir" ) );
+    }
+
+    /**
       Set brightness
     */
     void setBrightness( double v )
     {
-      if (v != mBrightness && !isImmutable( QStringLiteral( "brightness" ) )) {
+      if (v != mBrightness && !isBrightnessImmutable()) {
         mBrightness = v;
         Q_EMIT brightnessChanged();
       }
     }
 
     Q_PROPERTY(double brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
+    Q_PROPERTY(bool isBrightnessImmutable READ isBrightnessImmutable CONSTANT)
     /**
       Get brightness
     */
@@ -46,14 +55,30 @@ class Test13 : public KConfigSkeleton
       return mBrightness;
     }
 
+    /**
+      Is brightness Immutable
+    */
+    bool isBrightnessImmutable() const
+    {
+      return isImmutable( QStringLiteral( "brightness" ) );
+    }
 
     Q_PROPERTY(bool startsWithUppercase READ startsWithUppercase CONSTANT)
+    Q_PROPERTY(bool isStartsWithUppercaseImmutable READ isStartsWithUppercaseImmutable CONSTANT)
     /**
       Get StartsWithUppercase
     */
     bool startsWithUppercase() const
     {
       return mStartsWithUppercase;
+    }
+
+    /**
+      Is StartsWithUppercase Immutable
+    */
+    bool isStartsWithUppercaseImmutable() const
+    {
+      return isImmutable( QStringLiteral( "StartsWithUppercase" ) );
     }
 
 

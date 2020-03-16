@@ -290,7 +290,7 @@ QStringList KConfig::groupList() const
         }
     }
 
-    return groups.toList();
+    return groups.values();
 }
 
 QStringList KConfigPrivate::groupList(const QByteArray &group) const
@@ -306,7 +306,7 @@ QStringList KConfigPrivate::groupList(const QByteArray &group) const
         }
     }
 
-    return groups.toList();
+    return groups.values();
 }
 
 static bool isGroupOrSubGroupMatch(const QByteArray &potentialGroup, const QByteArray &group)
@@ -359,7 +359,7 @@ QStringList KConfigPrivate::keyListImpl(const QByteArray &theGroup) const
                 tmp << QString::fromUtf8(key.mKey);
             }
         }
-        keys = tmp.toList();
+        keys = tmp.values();
     }
 
     return keys;
@@ -379,7 +379,7 @@ QMap<QString, QString> KConfig::entryMap(const QString &aGroup) const
     const QByteArray theGroup(aGroup.isEmpty() ? "<default>" : aGroup.toUtf8());
 
     const KEntryMapConstIterator theEnd = d->entryMap.constEnd();
-    KEntryMapConstIterator it = d->entryMap.findEntry(theGroup, nullptr, nullptr);
+    KEntryMapConstIterator it = d->entryMap.findEntry(theGroup, {}, {});
     if (it != theEnd) {
         ++it; // advance past the special group entry marker
 
@@ -1014,7 +1014,7 @@ bool KConfig::isImmutable() const
 bool KConfig::isGroupImmutableImpl(const QByteArray &aGroup) const
 {
     Q_D(const KConfig);
-    return isImmutable() || d->entryMap.getEntryOption(aGroup, nullptr, nullptr, KEntryMap::EntryImmutable);
+    return isImmutable() || d->entryMap.getEntryOption(aGroup, {},{}, KEntryMap::EntryImmutable);
 }
 
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(4, 0)
@@ -1045,7 +1045,7 @@ const KConfigGroup KConfig::groupImpl(const QByteArray &group) const
 
 KEntryMap::EntryOptions convertToOptions(KConfig::WriteConfigFlags flags)
 {
-    KEntryMap::EntryOptions options = nullptr;
+    KEntryMap::EntryOptions options = {};
 
     if (flags & KConfig::Persistent) {
         options |= KEntryMap::EntryDirty;
