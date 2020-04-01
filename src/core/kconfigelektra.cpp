@@ -10,15 +10,10 @@
 #include <QDir>
 #include <utility>
 #include <iostream>
-#include <merging/threewaymerge.hpp>
-#include <merging/onesidestrategy.hpp>
-#include <merging/mergeresult.hpp>
-#include <merging/mergetask.hpp>
-#include <merging/automergestrategy.hpp>
+#include <elektra/kdbmerge.h>
 
 
 using namespace kdb;
-using namespace kdb::tools::merging;
 
 
 KConfigElektra::KConfigElektra(std::string appName, uint majorVersion, std::string profile) : app_name(std::move(
@@ -180,20 +175,6 @@ inline Key kConfigGroupToElektraKey(const Key &writeKey, const std::string group
 bool
 KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, KConfigBackend::WriteOptions options)
 {
-<<<<<<< HEAD
-    //TODO merge
-//TODO write group meta (#10)
-=======
-    ThreeWayMerge merger;
-
-    auto autoStrategy = AutoMergeStrategy();
-    auto strategy = OneSideStrategy(ConflictResolutionSide::OURS);
-
-    merger.addConflictStrategy(&autoStrategy);
-    merger.addConflictStrategy(&strategy);
-
-
->>>>>>> added threeway merge to elektra backend
     bool onlyGlobal = options & WriteGlobal;
 
     const KEntryMapConstIterator end = entryMap.constEnd();
@@ -213,13 +194,13 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
     for (auto iterator = this->ks->cbegin(); iterator != this->ks->cend(); iterator++) {
         Key k = iterator.get();
         std::cout << "\t" << iterator.get().getFullName() << " (" << k.isBelow(mergeRoot) << ", " << k.isBelow(writeKey) << ")" << std::endl;
-    }
+    }*/
 
     std::cout << std::endl << "Base Cut: " << std::endl;
 
     for (auto iterator = baseCut.cbegin(); iterator != baseCut.cend(); iterator++) {
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
-    }*/
+    }
 
     ours.copy(baseCut);
 
@@ -236,19 +217,10 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
             continue;
         }
 
-<<<<<<< HEAD
-        Key eKey = kConfigGroupToElektraKey(write_key, entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
+        Key eKey = kConfigGroupToElektraKey(writeKey, entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
 
         if (entry.bDeleted || entry.mValue.isEmpty()) {
-            this->ks->cut(eKey);
-=======
-        std::string eKeyName = writeKey.getFullName() + "/"
-                               + kConfigGroupToElektraKey(entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
-
-        if (entry.bDeleted || entry.mValue.isEmpty()) {
-            ours.cut(Key(eKeyName, KEY_END));
->>>>>>> added threeway merge to elektra backend
-
+            ours.cut(eKey);
             continue;
         }
 
@@ -258,11 +230,11 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
         }
     }
 
-    /*std::cout << std::endl << "Ours: " << std::endl;
+    std::cout << std::endl << "Ours: " << std::endl;
 
     for (auto iterator = ours.cbegin(); iterator != ours.cend(); iterator++) {
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
-    }*/
+    }
 
     this->kdb->get(theirs, mergeRoot);
 
@@ -272,39 +244,38 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
 
     for (auto iterator = theirs.cbegin(); iterator != theirs.cend(); iterator++) {
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
-    }
+    }*/
 
     std::cout << std::endl << "Theirs Cut: " << std::endl;
 
     for (auto iterator = theirsCut.cbegin(); iterator != theirsCut.cend(); iterator++) {
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
-    }*/
-
-    MergeTask task(BaseMergeKeys(baseCut, mergeRoot), OurMergeKeys(ours, mergeRoot), TheirMergeKeys(theirsCut, mergeRoot), mergeRoot);
-
-    MergeResult result = merger.mergeKeySet(task);
-
-    if (result.hasConflicts()) {
-        qInfo() << "merge found conflicts";
-        KeySet conflictSet = result.getConflictSet();
-        for (KeySetIterator it = conflictSet.cbegin(); it < conflictSet.cend(); it++) {
-            Key key = it.get();
-            qInfo() << "\tconflict in key: " << QString::fromStdString(key.getFullName());
-            key.rewindMeta();
-            Key meta;
-            while ((meta = key.nextMeta()) != nullptr) {
-                qInfo() << "\t\t" << QString::fromStdString(meta.getFullName()) << ": " << QString::fromStdString(meta.getString());
-            }
-        }
     }
 
-    KeySet mergedKeys = result.getMergedKeys();
+    ckdb::Key * informationKey = ckdb::keyNew (nullptr, KEY_END);
+    ckdb::KeySet * mergeResult = elektraMerge(ours.getKeySet(), writeKey.getKey(), theirsCut.getKeySet(), writeKey.getKey(),
+		    baseCut.getKeySet(), mergeRoot.getKey(), writeKey.getKey(), ckdb::MERGE_STRATEGY_OUR, informationKey);
+    int numberOfConflicts = getConflicts (informationKey);
+    keyDel (informationKey);
+    if (mergeResult == nullptr)
+    {
+	    if (numberOfConflicts > 0)
+	    {
+		    qInfo() << "Merge conflict happened";
+	    } else
+	    {
+		    qInfo() << "Error while merging";
+	    }
+	    return false;
+    }
 
-    /*std::cout << std::endl << "Merged Keys: " << std::endl;
+    KeySet mergedKeys(mergeResult);
+
+    std::cout << std::endl << "Merged Keys: " << std::endl;
 
     for (auto iterator = mergedKeys.cbegin(); iterator != mergedKeys.cend(); iterator++) {
         std::cout << "\t" << iterator.get().getFullName() << std::endl;
-    }*/
+    }
 
     KeySet* old = this->ks;
 
