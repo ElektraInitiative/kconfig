@@ -10,6 +10,8 @@
 #include <QDir>
 #include <utility>
 #include <iostream>
+#include <elektra/kdbmerge.h>
+
 
 using namespace kdb;
 
@@ -173,17 +175,34 @@ inline Key kConfigGroupToElektraKey(const Key &writeKey, const std::string group
 bool
 KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, KConfigBackend::WriteOptions options)
 {
-    //TODO merge
-//TODO write group meta (#10)
     bool onlyGlobal = options & WriteGlobal;
 
     const KEntryMapConstIterator end = entryMap.constEnd();
 
-    Key write_key = Key(this->write_key(), KEY_END);
+    Key writeKey = Key(this->write_key(), KEY_END);
+    Key mergeRoot = Key(this->read_key(), KEY_END);
 
-    this->kdb->get(*this->ks, write_key);
+    KeySet ours;
+    KeySet theirs;
 
-    setLocalFilePath(QString::fromStdString(write_key.getString()));
+    theirs.copy(*this->ks);
+
+    KeySet baseCut = this->ks->cut(mergeRoot);
+
+    /*std::cout << std::endl << "Base: " << std::endl;
+
+    for (auto iterator = this->ks->cbegin(); iterator != this->ks->cend(); iterator++) {
+        Key k = iterator.get();
+        std::cout << "\t" << iterator.get().getFullName() << " (" << k.isBelow(mergeRoot) << ", " << k.isBelow(writeKey) << ")" << std::endl;
+    }*/
+
+    std::cout << std::endl << "Base Cut: " << std::endl;
+
+    for (auto iterator = baseCut.cbegin(); iterator != baseCut.cend(); iterator++) {
+        std::cout << "\t" << iterator.get().getFullName() << std::endl;
+    }
+
+    ours.copy(baseCut);
 
     for (KEntryMapConstIterator it = entryMap.constBegin(); it != end; ++it) {
         const KEntryKey &entryKey = it.key();
@@ -198,21 +217,76 @@ KConfigElektra::writeConfig(const QByteArray & /*locale*/, KEntryMap &entryMap, 
             continue;
         }
 
-        Key eKey = kConfigGroupToElektraKey(write_key, entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
+        Key eKey = kConfigGroupToElektraKey(writeKey, entryKey.mGroup.toStdString(), entryKey.mKey.toStdString());
 
         if (entry.bDeleted || entry.mValue.isEmpty()) {
-            this->ks->cut(eKey);
-
+            ours.cut(eKey);
             continue;
         }
 
         if (entry.bDirty) {
             eKey.set(it.value().mValue.toStdString());
-            this->ks->append(eKey);
+            ours.append(eKey);
         }
     }
 
-    this->kdb->set(*this->ks, write_key);
+    std::cout << std::endl << "Ours: " << std::endl;
+
+    for (auto iterator = ours.cbegin(); iterator != ours.cend(); iterator++) {
+        std::cout << "\t" << iterator.get().getFullName() << std::endl;
+    }
+
+    this->kdb->get(theirs, mergeRoot);
+
+    KeySet theirsCut = theirs.cut(mergeRoot);
+
+    /*std::cout << std::endl << "Theirs: " << std::endl;
+
+    for (auto iterator = theirs.cbegin(); iterator != theirs.cend(); iterator++) {
+        std::cout << "\t" << iterator.get().getFullName() << std::endl;
+    }*/
+
+    std::cout << std::endl << "Theirs Cut: " << std::endl;
+
+    for (auto iterator = theirsCut.cbegin(); iterator != theirsCut.cend(); iterator++) {
+        std::cout << "\t" << iterator.get().getFullName() << std::endl;
+    }
+
+    ckdb::Key * informationKey = ckdb::keyNew (nullptr, KEY_END);
+    ckdb::KeySet * mergeResult = elektraMerge(ours.getKeySet(), writeKey.getKey(), theirsCut.getKeySet(), writeKey.getKey(),
+		    baseCut.getKeySet(), mergeRoot.getKey(), writeKey.getKey(), ckdb::MERGE_STRATEGY_OUR, informationKey);
+    int numberOfConflicts = getConflicts (informationKey);
+    keyDel (informationKey);
+    if (mergeResult == nullptr)
+    {
+	    if (numberOfConflicts > 0)
+	    {
+		    qInfo() << "Merge conflict happened";
+	    } else
+	    {
+		    qInfo() << "Error while merging";
+	    }
+	    return false;
+    }
+
+    KeySet mergedKeys(mergeResult);
+
+    std::cout << std::endl << "Merged Keys: " << std::endl;
+
+    for (auto iterator = mergedKeys.cbegin(); iterator != mergedKeys.cend(); iterator++) {
+        std::cout << "\t" << iterator.get().getFullName() << std::endl;
+    }
+
+    KeySet* old = this->ks;
+
+    this->ks = new KeySet(theirs.release());
+    delete old;
+
+    this->ks->append(mergedKeys);
+
+    this->kdb->set(*this->ks, writeKey);
+
+    setLocalFilePath(QString::fromStdString(writeKey.getString()));
 
     return true;
 }

@@ -46,6 +46,7 @@ ecm_qt_declare_logging_category(libkconfigcore_SRCS
 configure_file(config-kconfig.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-kconfig.h )
 
 add_library(KF5ConfigCore ${libkconfigcore_SRCS})
+generate_export_header(KF5ConfigCore BASE_NAME KConfigCore)
 add_library(KF5::ConfigCore ALIAS KF5ConfigCore)
 ecm_generate_export_header(KF5ConfigCore
     BASE_NAME KConfigCore
@@ -78,12 +79,22 @@ set_target_properties(KF5ConfigCore PROPERTIES VERSION   ${KCONFIG_VERSION_STRIN
         EXPORT_NAME ConfigCore
         )
 
+find_package(Elektra)
+
 if (ELEKTRA_FOUND)
+
+    find_library(ElektraTools elektratools REQUIRED)
+    find_library(ElektraMerge elektra-merge REQUIRED)
+
+    message(STATUS "Found ${ElektraTools}")
+    message(STATUS "Found ${ElektraMerge}")
+
+    message(STATUS "Elektra ${ELEKTRA_VERSION} found")
     include_directories(${ELEKTRA_INCLUDE_DIR})
 
-    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -lelektra-merge")
 
-    target_link_libraries(KF5ConfigCore PRIVATE ${ELEKTRA_LIBRARIES})
+    target_link_libraries(KF5ConfigCore PRIVATE ${ELEKTRA_LIBRARIES} ${ElektraMerge} ${ElektraTools})
     add_definitions(-DFEAT_ELEKTRA)
 
     ecm_generate_headers(KConfigCore_HEADERS
