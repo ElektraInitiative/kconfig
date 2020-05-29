@@ -1622,7 +1622,7 @@ protected:
      */
     virtual bool usrSave();
 
-#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
+ #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
    /**
      * @deprecated since 5.0, override usrRead instead.  This method is still called from usrRead
      * for compatibility.
@@ -1631,7 +1631,7 @@ protected:
     virtual void usrReadConfig();
 #endif
 
-#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
+ #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 0)
    /**
      * @deprecated since 5.0, override usrSave instead.  This method is still called from usrSave
      * for compatibility.
