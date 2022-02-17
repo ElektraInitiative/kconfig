@@ -1,38 +1,31 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 1997 Matthias Kalle Dalheimer (kalle@kde.org)
+/*  This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
-#include <QtTestGui>
 #include "kconfigguitest.h"
+#include <QtTestGui>
 
-#include <kconfig.h>
 #include <QDir>
 #include <QFont>
 #include <QStandardPaths>
+#include <kconfig.h>
 #include <kconfiggroup.h>
 #include <kconfigskeleton.h>
 
 QTEST_MAIN(KConfigTest)
 
-#define COLORENTRY1 QColor("steelblue")
-#define COLORENTRY2 QColor(235, 235, 100, 125)
-#define COLORENTRY3 QColor(234, 234, 127)
-#define FONTENTRY QFont("Times", 16, QFont::Normal)
+// clazy:excludeall=non-pod-global-static
+
+static const QColor s_color_entry1(QLatin1String{"steelblue"});
+static const QColor s_color_entry2(235, 235, 100, 125);
+static const QColor s_color_entry3(234, 234, 127);
+
+static QFont fontEntry()
+{
+    return QFont{QStringLiteral("Times"), 16, QFont::Normal};
+}
 
 void KConfigTest::initTestCase()
 {
@@ -45,11 +38,11 @@ void KConfigTest::initTestCase()
     KConfig sc(QStringLiteral("kconfigtest"));
 
     KConfigGroup cg(&sc, "ComplexTypes");
-    cg.writeEntry("colorEntry1", COLORENTRY1);
-    cg.writeEntry("colorEntry2", COLORENTRY2);
+    cg.writeEntry("colorEntry1", s_color_entry1);
+    cg.writeEntry("colorEntry2", s_color_entry2);
     cg.writeEntry("colorEntry3", (QList<int>() << 234 << 234 << 127));
     cg.writeEntry("colorEntry4", (QList<int>() << 235 << 235 << 100 << 125));
-    cg.writeEntry("fontEntry", FONTENTRY);
+    cg.writeEntry("fontEntry", fontEntry());
     QVERIFY(sc.sync());
 
     KConfig sc1(QStringLiteral("kdebugrc"));
@@ -64,7 +57,7 @@ void KConfigTest::initTestCase()
     // This is fixed by https://codereview.qt-project.org/181645
     // It's not in yet, and it depends on the app font, so rather than
     // a version check, let's do a runtime check.
-    QFont orig(FONTENTRY);
+    QFont orig(fontEntry());
     QFont f;
     f.fromString(orig.toString());
     m_fontFromStringBug = (f.toString() != orig.toString());
@@ -84,17 +77,16 @@ void KConfigTest::testComplex()
     KConfig sc2(QStringLiteral("kconfigtest"));
     KConfigGroup sc3(&sc2, "ComplexTypes");
 
-    QCOMPARE(QVariant(sc3.readEntry("colorEntry1", QColor(Qt::black))).toString(),
-             QVariant(COLORENTRY1).toString());
-    QCOMPARE(sc3.readEntry("colorEntry1", QColor()), COLORENTRY1);
-    QCOMPARE(sc3.readEntry("colorEntry2", QColor()), COLORENTRY2);
-    QCOMPARE(sc3.readEntry("colorEntry3", QColor()), COLORENTRY3);
-    QCOMPARE(sc3.readEntry("colorEntry4", QColor()), COLORENTRY2);
+    QCOMPARE(QVariant(sc3.readEntry("colorEntry1", QColor(Qt::black))).toString(), QVariant(s_color_entry1).toString());
+    QCOMPARE(sc3.readEntry("colorEntry1", QColor()), s_color_entry1);
+    QCOMPARE(sc3.readEntry("colorEntry2", QColor()), s_color_entry2);
+    QCOMPARE(sc3.readEntry("colorEntry3", QColor()), s_color_entry3);
+    QCOMPARE(sc3.readEntry("colorEntry4", QColor()), s_color_entry2);
     QCOMPARE(sc3.readEntry("defaultColorTest", QColor("black")), QColor("black"));
     if (m_fontFromStringBug) {
         QEXPECT_FAIL("", "QFont fromString bug from Qt 5.8.0", Continue);
     }
-    QCOMPARE(sc3.readEntry("fontEntry", QFont()), FONTENTRY);
+    QCOMPARE(sc3.readEntry("fontEntry", QFont()), fontEntry());
 }
 
 void KConfigTest::testInvalid()
@@ -125,19 +117,19 @@ void KConfigTest::testInvalid()
     sc3.writeEntry("badList", list);
     QVERIFY(sc.sync());
 
-    QVERIFY(sc3.readEntry("badList", QColor()) == QColor());     // out of bounds
+    QVERIFY(sc3.readEntry("badList", QColor()) == QColor()); // out of bounds
 
     // 4 element list
     list << 4;
     sc3.writeEntry("badList", list);
     QVERIFY(sc.sync());
 
-    QVERIFY(sc3.readEntry("badList", QColor()) == QColor());     // out of bounds
+    QVERIFY(sc3.readEntry("badList", QColor()) == QColor()); // out of bounds
 
     list[2] = -3;
     sc3.writeEntry("badList", list);
     QVERIFY(sc.sync());
-    QVERIFY(sc3.readEntry("badList", QColor()) == QColor());     // out of bounds
+    QVERIFY(sc3.readEntry("badList", QColor()) == QColor()); // out of bounds
 
     // 5 element list
     list[2] = 3;

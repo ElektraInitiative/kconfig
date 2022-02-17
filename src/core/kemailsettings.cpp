@@ -1,28 +1,8 @@
 /*
- * Copyright (c) 2000 Alex Zepeda <zipzippy@sonic.net>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
+    SPDX-FileCopyrightText: 2000 Alex Zepeda <zipzippy@sonic.net>
+
+    SPDX-License-Identifier: BSD-2-Clause
+*/
 
 #include "kemailsettings.h"
 
@@ -32,7 +12,10 @@
 class KEMailSettingsPrivate
 {
 public:
-    KEMailSettingsPrivate() : m_pConfig(nullptr) {}
+    KEMailSettingsPrivate()
+        : m_pConfig(nullptr)
+    {
+    }
     ~KEMailSettingsPrivate()
     {
         delete m_pConfig;
@@ -117,7 +100,7 @@ QString KEMailSettings::getSetting(KEMailSettings::Setting s) const
     };
     return QString();
 }
-void KEMailSettings::setSetting(KEMailSettings::Setting s, const QString  &v)
+void KEMailSettings::setSetting(KEMailSettings::Setting s, const QString &v)
 {
     KConfigGroup cg(p->m_pConfig, QLatin1String("PROFILE_") + p->m_sCurrentProfile);
     switch (s) {
@@ -211,7 +194,6 @@ void KEMailSettings::setDefault(const QString &s)
     p->m_pConfig->group("Defaults").writeEntry("Profile", s);
     p->m_pConfig->sync();
     p->m_sDefaultProfile = s;
-
 }
 
 void KEMailSettings::setProfile(const QString &s)
@@ -245,9 +227,9 @@ KEMailSettings::KEMailSettings()
     p->m_pConfig = new KConfig(QStringLiteral("emaildefaults"));
 
     const QStringList groups = p->m_pConfig->groupList();
-    for (QStringList::ConstIterator it = groups.begin(); it != groups.end(); ++it) {
-        if ((*it).startsWith(QLatin1String("PROFILE_"))) {
-            p->profiles += (*it).mid(8, (*it).length());
+    for (const auto &grp : groups) {
+        if (grp.startsWith(QLatin1String("PROFILE_"))) {
+            p->profiles += grp.mid(8 /* length of "PROFILE_" */);
         }
     }
 

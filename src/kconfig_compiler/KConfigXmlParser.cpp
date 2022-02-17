@@ -1,30 +1,19 @@
-/* This file is part of the KDE libraries
-    Copyright (c) 2003 Cornelius Schumacher <schumacher@kde.org>
-    Copyright (c) 2003 Waldo Bastian <bastian@kde.org>
-    Copyright (c) 2003 Zack Rusin <zack@kde.org>
-    Copyright (c) 2006 Michaël Larouche <michael.larouche@kdemail.net>
-    Copyright (c) 2008 Allen Winter <winter@kde.org>
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
+/*
+    This file is part of the KDE libraries
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    SPDX-FileCopyrightText: 2003 Cornelius Schumacher <schumacher@kde.org>
+    SPDX-FileCopyrightText: 2003 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 2003 Zack Rusin <zack@kde.org>
+    SPDX-FileCopyrightText: 2006 Michaël Larouche <michael.larouche@kdemail.net>
+    SPDX-FileCopyrightText: 2008 Allen Winter <winter@kde.org>
+    SPDX-FileCopyrightText: 2020 Tomaz Cananbrava <tcanabrava@kde.org>
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "KConfigXmlParser.h"
-#include "KConfigParameters.h"
 
+#include <QDebug>
 #include <QDomAttr>
 #include <QDomElement>
 #include <QDomNode>
@@ -33,13 +22,15 @@
 #include <QStringList>
 #include <QTextStream>
 #include <iostream>
-//TODO: Move preprocessDefault to Header / CPP implementation.
+// TODO: Move preprocessDefault to Header / CPP implementation.
 // it makes no sense for a parser to process those values and generate code.
 
-static void preProcessDefault(QString &defaultValue, const QString &name,
+static void preProcessDefault(QString &defaultValue,
+                              const QString &name,
                               const QString &type,
-                              const CfgEntry::Choices &choices,
-                              QString &code, const KConfigParameters &cfg)
+                              const CfgEntry::Choices &cfgChoices,
+                              QString &code,
+                              const KConfigParameters &cfg)
 {
     if (type == QLatin1String("String") && !defaultValue.isEmpty()) {
         defaultValue = literalString(defaultValue);
@@ -48,7 +39,7 @@ static void preProcessDefault(QString &defaultValue, const QString &name,
         defaultValue = literalString(defaultValue);
     } else if (type == QLatin1String("Url") && !defaultValue.isEmpty()) {
         // Use fromUserInput in order to support absolute paths and absolute urls, like KDE4's KUrl(QString) did.
-        defaultValue = QLatin1String("QUrl::fromUserInput( ") + literalString(defaultValue) + QLatin1Char(')');
+        defaultValue = QLatin1String("QUrl::fromUserInput( %1)").arg(literalString(defaultValue));
     } else if ((type == QLatin1String("UrlList") || type == QLatin1String("StringList") || type == QLatin1String("PathList")) && !defaultValue.isEmpty()) {
         QTextStream cpp(&code, QIODevice::WriteOnly | QIODevice::Append);
         if (!code.isEmpty()) {
@@ -61,13 +52,12 @@ static void preProcessDefault(QString &defaultValue, const QString &name,
             cpp << "  QStringList default" << name << ";\n";
         }
         const QStringList defaults = defaultValue.split(QLatin1Char(','));
-        QStringList::ConstIterator it;
-        for (it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
+        for (const auto &val : defaults) {
             cpp << "  default" << name << ".append( ";
             if (type == QLatin1String("UrlList")) {
                 cpp << "QUrl::fromUserInput(";
             }
-            cpp << "QString::fromUtf8( \"" << *it << "\" ) ";
+            cpp << "QString::fromUtf8( \"" << val << "\" ) ";
             if (type == QLatin1String("UrlList")) {
                 cpp << ") ";
             }
@@ -76,23 +66,21 @@ static void preProcessDefault(QString &defaultValue, const QString &name,
         defaultValue = QLatin1String("default") + name;
 
     } else if (type == QLatin1String("Color") && !defaultValue.isEmpty()) {
-        const QRegularExpression colorRe(QRegularExpression::anchoredPattern(
-                                         QStringLiteral("\\d+,\\s*\\d+,\\s*\\d+(,\\s*\\d+)?")));
+        static const QRegularExpression colorRe(QRegularExpression::anchoredPattern(QStringLiteral("\\d+,\\s*\\d+,\\s*\\d+(,\\s*\\d+)?")));
 
         if (colorRe.match(defaultValue).hasMatch()) {
-            defaultValue = QLatin1String("QColor( ") + defaultValue + QLatin1String(" )");
+            defaultValue = QLatin1String("QColor( %1 )").arg(defaultValue);
         } else {
-            defaultValue = QLatin1String("QColor( \"") + defaultValue + QLatin1String("\" )");
+            defaultValue = QLatin1String("QColor( \"%1\" )").arg(defaultValue);
         }
 
     } else if (type == QLatin1String("Enum")) {
-        QList<CfgEntry::Choice>::ConstIterator it;
-        for (it = choices.choices.constBegin(); it != choices.choices.constEnd(); ++it) {
-            if ((*it).name == defaultValue) {
-                if (cfg.globalEnums && choices.name().isEmpty()) {
-                    defaultValue.prepend(choices.prefix);
+        for (const auto &choice : cfgChoices.choices) {
+            if (choice.name == defaultValue) {
+                if (cfg.globalEnums && cfgChoices.name().isEmpty()) {
+                    defaultValue.prepend(cfgChoices.prefix);
                 } else {
-                    defaultValue.prepend(enumTypeQualifier(name, choices) + choices.prefix);
+                    defaultValue.prepend(enumTypeQualifier(name, cfgChoices) + cfgChoices.prefix);
                 }
                 break;
             }
@@ -107,9 +95,8 @@ static void preProcessDefault(QString &defaultValue, const QString &name,
         cpp << "  QList<int> default" << name << ";\n";
         if (!defaultValue.isEmpty()) {
             const QStringList defaults = defaultValue.split(QLatin1Char(','));
-            QStringList::ConstIterator it;
-            for (it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
-                cpp << "  default" << name << ".append( " << *it << " );\n";
+            for (const auto &defaultVal : defaults) {
+                cpp << "  default" << name << ".append( " << defaultVal << " );\n";
             }
         }
         defaultValue = QLatin1String("default") + name;
@@ -133,12 +120,12 @@ void KConfigXmlParser::readParameterFromEntry(CfgEntry &readEntry, const QDomEle
 {
     readEntry.param = e.attribute(QStringLiteral("name"));
     readEntry.paramType = e.attribute(QStringLiteral("type"));
-    
+
     if (readEntry.param.isEmpty()) {
         std::cerr << "Parameter must have a name: " << qPrintable(dumpNode(e)) << std::endl;
-        exit (1);
+        exit(1);
     }
-    
+
     if (readEntry.paramType.isEmpty()) {
         std::cerr << "Parameter must have a type: " << qPrintable(dumpNode(e)) << std::endl;
         exit(1);
@@ -169,7 +156,7 @@ void KConfigXmlParser::readParameterFromEntry(CfgEntry &readEntry, const QDomEle
         readEntry.paramMax = readEntry.paramValues.count() - 1;
     } else {
         std::cerr << "Parameter '" << qPrintable(readEntry.param) << "' has type " << qPrintable(readEntry.paramType)
-            << " but must be of type int, uint or Enum." << std::endl;
+                  << " but must be of type int, uint or Enum." << std::endl;
         exit(1);
     }
 }
@@ -177,6 +164,7 @@ void KConfigXmlParser::readParameterFromEntry(CfgEntry &readEntry, const QDomEle
 bool KConfigXmlParser::hasDefaultCode(CfgEntry &readEntry, const QDomElement &element)
 {
     Q_UNUSED(readEntry)
+
     for (QDomElement e = element.firstChildElement(); !e.isNull(); e = e.nextSiblingElement()) {
         if (e.attribute(QStringLiteral("param")).isEmpty()) {
             if (e.attribute(QStringLiteral("code")) == QLatin1String("true")) {
@@ -201,7 +189,8 @@ void KConfigXmlParser::readChoicesFromEntry(CfgEntry &readEntry, const QDomEleme
         if (choice.name.isEmpty()) {
             std::cerr << "Tag <choice> requires attribute 'name'." << std::endl;
         } else if (!choiceNameRegex.match(choice.name).hasMatch()) {
-            std::cerr << "Tag <choice> attribute 'name' must be compatible with Enum naming. name was '" << qPrintable(choice.name) << "'. You can use attribute 'value' to pass any string as the choice value." << std::endl;
+            std::cerr << "Tag <choice> attribute 'name' must be compatible with Enum naming. name was '" << qPrintable(choice.name)
+                      << "'. You can use attribute 'value' to pass any string as the choice value." << std::endl;
         }
         choice.val = e2.attribute(QStringLiteral("value"));
         for (QDomElement e3 = e2.firstChildElement(); !e3.isNull(); e3 = e3.nextSiblingElement()) {
@@ -220,7 +209,7 @@ void KConfigXmlParser::readChoicesFromEntry(CfgEntry &readEntry, const QDomEleme
         }
         chlist.append(choice);
     }
-    
+
     QString name = e.attribute(QStringLiteral("name"));
     QString prefix = e.attribute(QStringLiteral("prefix"));
 
@@ -277,7 +266,7 @@ void KConfigXmlParser::validateNameAndKey(CfgEntry &readEntry, const QDomElement
     bool nameIsEmpty = readEntry.name.isEmpty();
     if (nameIsEmpty && readEntry.key.isEmpty()) {
         std::cerr << "Entry must have a name or a key: " << qPrintable(dumpNode(element)) << std::endl;
-        exit (1);
+        exit(1);
     }
 
     if (readEntry.key.isEmpty()) {
@@ -295,12 +284,12 @@ void KConfigXmlParser::validateNameAndKey(CfgEntry &readEntry, const QDomElement
     if (readEntry.name.contains(QStringLiteral("$("))) {
         if (readEntry.param.isEmpty()) {
             std::cerr << "Name may not be parameterized: " << qPrintable(readEntry.name) << std::endl;
-            exit (1);
+            exit(1);
         }
     } else {
         if (!readEntry.param.isEmpty()) {
             std::cerr << "Name must contain '$(" << qPrintable(readEntry.param) << ")': " << qPrintable(readEntry.name) << std::endl;
-            exit (1);
+            exit(1);
         }
     }
 }
@@ -335,13 +324,13 @@ void KConfigXmlParser::readParamDefaultValues(CfgEntry &readEntry, const QDomEle
             i = readEntry.paramValues.indexOf(index);
             if (i == -1) {
                 std::cerr << "Index '" << qPrintable(index) << "' for default value is unknown." << std::endl;
-                exit (1);
+                exit(1);
             }
         }
 
         if ((i < 0) || (i > readEntry.paramMax)) {
             std::cerr << "Index '" << i << "' for default value is out of range [0, " << readEntry.paramMax << "]." << std::endl;
-            exit (1);
+            exit(1);
         }
 
         QString tmpDefaultValue = e.text();
@@ -354,14 +343,16 @@ void KConfigXmlParser::readParamDefaultValues(CfgEntry &readEntry, const QDomEle
     }
 }
 
-CfgEntry *KConfigXmlParser::parseEntry(const QString &group, const QDomElement &element)
+CfgEntry *KConfigXmlParser::parseEntry(const QString &group, const QString &parentGroup, const QDomElement &element)
 {
     CfgEntry readEntry;
     readEntry.type = element.attribute(QStringLiteral("type"));
     readEntry.name = element.attribute(QStringLiteral("name"));
     readEntry.key = element.attribute(QStringLiteral("key"));
-    readEntry.hidden = element.attribute(QStringLiteral("hidden")) == QLatin1String("true");;
+    readEntry.hidden = element.attribute(QStringLiteral("hidden")) == QLatin1String("true");
+    ;
     readEntry.group = group;
+    readEntry.parentGroup = parentGroup;
 
     const bool nameIsEmpty = readEntry.name.isEmpty();
 
@@ -374,29 +365,33 @@ CfgEntry *KConfigXmlParser::parseEntry(const QString &group, const QDomElement &
     }
 
     if (readEntry.type.isEmpty()) {
-        readEntry.type = QStringLiteral("String");    // XXX : implicit type might be bad
+        readEntry.type = QStringLiteral("String"); // XXX : implicit type might be bad
     }
 
     readParamDefaultValues(readEntry, element);
 
     if (!mValidNameRegexp.match(readEntry.name).hasMatch()) {
-        if (nameIsEmpty)
-            std::cerr << "The key '" << qPrintable(readEntry.key) << "' can not be used as name for the entry because "
-                 "it is not a valid name. You need to specify a valid name for this entry." << std::endl;
-        else {
+        if (nameIsEmpty) {
+            std::cerr << "The key '" << qPrintable(readEntry.key)
+                      << "' can not be used as name for the entry because "
+                         "it is not a valid name. You need to specify a valid name for this entry."
+                      << std::endl;
+        } else {
             std::cerr << "The name '" << qPrintable(readEntry.name) << "' is not a valid name for an entry." << std::endl;
         }
-        exit (1);
+        exit(1);
     }
 
     if (mAllNames.contains(readEntry.name)) {
-        if (nameIsEmpty)
-            std::cerr << "The key '" << qPrintable(readEntry.key) << "' can not be used as name for the entry because "
-                 "it does not result in a unique name. You need to specify a unique name for this entry." << std::endl;
-        else {
+        if (nameIsEmpty) {
+            std::cerr << "The key '" << qPrintable(readEntry.key)
+                      << "' can not be used as name for the entry because "
+                         "it does not result in a unique name. You need to specify a unique name for this entry."
+                      << std::endl;
+        } else {
             std::cerr << "The name '" << qPrintable(readEntry.name) << "' is not unique." << std::endl;
         }
-        exit (1);
+        exit(1);
     }
 
     mAllNames.append(readEntry.name);
@@ -406,10 +401,11 @@ CfgEntry *KConfigXmlParser::parseEntry(const QString &group, const QDomElement &
         preProcessDefault(readEntry.defaultValue, readEntry.name, readEntry.type, readEntry.choices, readEntry.code, cfg);
     }
 
-    // TODO: Try to Just return the CfgEntry we populated instead of 
+    // TODO: Try to Just return the CfgEntry we populated instead of
     // creating another one to fill the code.
     CfgEntry *result = new CfgEntry();
     result->group = readEntry.group;
+    result->parentGroup = readEntry.parentGroup;
     result->type = readEntry.type;
     result->key = readEntry.key;
     result->name = readEntry.name;
@@ -442,28 +438,33 @@ CfgEntry *KConfigXmlParser::parseEntry(const QString &group, const QDomElement &
 
 // TODO: Change the name of the config variable.
 KConfigXmlParser::KConfigXmlParser(const KConfigParameters &cfg, const QString &inputFileName)
-    : cfg(cfg), mInputFileName(inputFileName)
+    : cfg(cfg)
+    , mInputFileName(inputFileName)
 {
     mValidNameRegexp.setPattern(QRegularExpression::anchoredPattern(QStringLiteral("[a-zA-Z_][a-zA-Z0-9_]*")));
 }
- 
+
 void KConfigXmlParser::start()
 {
     QFile input(mInputFileName);
+    if (!input.open(QIODevice::ReadOnly)) {
+        qFatal("Could not open input file: %s", qUtf8Printable(mInputFileName));
+    }
     QDomDocument doc;
     QString errorMsg;
     int errorRow;
     int errorCol;
     if (!doc.setContent(&input, &errorMsg, &errorRow, &errorCol)) {
         std::cerr << "Unable to load document." << std::endl;
-        std::cerr << "Parse error in " << qPrintable(mInputFileName) << ", line " << errorRow << ", col " << errorCol << ": " << qPrintable(errorMsg) << std::endl;
-        exit (1);
+        std::cerr << "Parse error in " << qPrintable(mInputFileName) << ", line " << errorRow << ", col " << errorCol << ": " << qPrintable(errorMsg)
+                  << std::endl;
+        exit(1);
     }
-    
+
     QDomElement cfgElement = doc.documentElement();
     if (cfgElement.isNull()) {
         std::cerr << "No document in kcfg file" << std::endl;
-        exit (1);
+        exit(1);
     }
 
     for (QDomElement element = cfgElement.firstChildElement(); !element.isNull(); element = element.nextSiblingElement()) {
@@ -499,19 +500,21 @@ void KConfigXmlParser::readGroupTag(const QDomElement &e)
     QString group = e.attribute(QStringLiteral("name"));
     if (group.isEmpty()) {
         std::cerr << "Group without name" << std::endl;
-        exit (1);
+        exit(1);
     }
+
+    const QString parentGroup = e.attribute(QStringLiteral("parentGroupName"));
 
     for (QDomElement e2 = e.firstChildElement(); !e2.isNull(); e2 = e2.nextSiblingElement()) {
         if (e2.tagName() != QLatin1String("entry")) {
             continue;
         }
-        CfgEntry *entry = parseEntry(group, e2);
+        CfgEntry *entry = parseEntry(group, parentGroup, e2);
         if (entry) {
             mParseResult.entries.append(entry);
         } else {
             std::cerr << "Can not parse entry." << std::endl;
-            exit (1);
+            exit(1);
         }
     }
 }
@@ -519,6 +522,7 @@ void KConfigXmlParser::readGroupTag(const QDomElement &e)
 void KConfigXmlParser::readKcfgfileTag(const QDomElement &e)
 {
     mParseResult.cfgFileName = e.attribute(QStringLiteral("name"));
+    mParseResult.cfgStateConfig = e.attribute(QStringLiteral("stateConfig")).toLower() == QLatin1String("true");
     mParseResult.cfgFileNameArg = e.attribute(QStringLiteral("arg")).toLower() == QLatin1String("true");
     for (QDomElement e2 = e.firstChildElement(); !e2.isNull(); e2 = e2.nextSiblingElement()) {
         if (e2.tagName() == QLatin1String("parameter")) {
@@ -538,7 +542,7 @@ void KConfigXmlParser::readSignalTag(const QDomElement &e)
     QString signalName = e.attribute(QStringLiteral("name"));
     if (signalName.isEmpty()) {
         std::cerr << "Signal without name." << std::endl;
-        exit (1);
+        exit(1);
     }
     Signal theSignal;
     theSignal.name = signalName;
@@ -549,14 +553,14 @@ void KConfigXmlParser::readSignalTag(const QDomElement &e)
             argument.type = e2.attribute(QStringLiteral("type"));
             if (argument.type.isEmpty()) {
                 std::cerr << "Signal argument without type." << std::endl;
-                exit (1);
+                exit(1);
             }
-            argument.name= e2.text();
+            argument.name = e2.text();
             theSignal.arguments.append(argument);
         } else if (e2.tagName() == QLatin1String("label")) {
             theSignal.label = e2.text();
         }
     }
-    
+
     mParseResult.signalList.append(theSignal);
 }

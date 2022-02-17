@@ -1,37 +1,24 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006 Thomas Braxton <brax108@cox.net>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (c) 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006 Thomas Braxton <brax108@cox.net>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kconfigbackend_p.h"
 
 #include <QDateTime>
-#include <QStringList>
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
-#include <QDebug>
+#include <QStringList>
 
-#include "kconfigini_p.h"
-#include "kconfigdata.h"
+#include "kconfigdata_p.h"
 #include "kconfigelektra_p.h"
+#include "kconfigini_p.h"
 
 typedef QExplicitlySharedDataPointer<KConfigBackend> BackendPtr;
 
@@ -52,7 +39,7 @@ void KConfigBackend::registerMappings(const KEntryMap & /*entryMap*/)
 
 BackendPtr KConfigBackend::create(const QString &file, const QString &sys)
 {
-    //qDebug() << "creating a backend for file" << file << "with system" << sys;
+    // qDebug() << "creating a backend for file" << file << "with system" << sys;
     KConfigBackend *backend = nullptr;
 
 #if 0 // TODO port to Qt5 plugin loading
@@ -75,7 +62,7 @@ BackendPtr KConfigBackend::create(const QString &file, const QString &sys)
     Q_UNUSED(sys);
 #endif
 
-    //qDebug() << "default creation of the Ini backend";
+    // qDebug() << "default creation of the Ini backend";
     backend = new KConfigIniBackend;
     backend->setFilePath(file);
     return BackendPtr(backend);
@@ -107,4 +94,4 @@ QExplicitlySharedDataPointer<KConfigBackend> KConfigBackend::create(const Elektr
     auto* elektra = new KConfigElektra(elektraInfo.app_name, elektraInfo.major_version, elektraInfo.profile);
     return BackendPtr(elektra);
 }
-#endif //FEAT_ELEKTRA
+#endif // FEAT_ELEKTRA

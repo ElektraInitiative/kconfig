@@ -1,6 +1,9 @@
 add_subdirectory(core)
-if(TARGET Qt5::Gui)
+if(TARGET Qt${QT_MAJOR_VERSION}::Gui)
     add_subdirectory(gui)
+endif()
+if(TARGET Qt${QT_MAJOR_VERSION}::Qml)
+    add_subdirectory(qml)
 endif()
 add_subdirectory(kconfig_compiler)
 add_subdirectory(kconf_update)
@@ -18,7 +21,7 @@ if (BUILD_QCH)
         KF5Config_QCH
         NAME KConfig
         BASE_NAME KF5Config
-        VERSION ${KF5_VERSION}
+        VERSION ${KF_VERSION}
         ORG_DOMAIN org.kde
         SOURCES # using only public headers, to cover only public API
             ${KConfigCore_APIDOX_SRCS}
@@ -38,10 +41,16 @@ if (BUILD_QCH)
             KCONFIGCORE_DEPRECATED_EXPORT
             KCONFIGCORE_DEPRECATED
             "KCONFIGCORE_DEPRECATED_VERSION(x, y, t)"
+            "KCONFIGCORE_DEPRECATED_VERSION_BELATED(x, y, xt, yt, t)"
+            "KCONFIGCORE_ENUMERATOR_DEPRECATED_VERSION(x, y, t)"
+            "KCONFIGCORE_ENUMERATOR_DEPRECATED_VERSION_BELATED(x, y, xt, yt, t)"
             KCONFIGGUI_EXPORT
             KCONFIGGUI_DEPRECATED_EXPORT
             KCONFIGGUI_DEPRECATED
             "KCONFIGGUI_DEPRECATED_VERSION(x, y, t)"
+            "KCONFIGGUI_DEPRECATED_VERSION_BELATED(x, y, xt, yt, t)"
+            "KCONFIGGUI_ENUMERATOR_DEPRECATED_VERSION(x, y, t)"
+            "KCONFIGGUI_ENUMERATOR_DEPRECATED_VERSION_BELATED(x, y, xt, yt, t)"
         TAGFILE_INSTALL_DESTINATION ${KDE_INSTALL_QTQCHDIR}
         QCH_INSTALL_DESTINATION ${KDE_INSTALL_QTQCHDIR}
         COMPONENT Devel

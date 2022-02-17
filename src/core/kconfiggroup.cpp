@@ -1,63 +1,62 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (c) 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kconfiggroup.h"
 #include "kconfiggroup_p.h"
 
 #include "kconfig.h"
-#include "kconfig_p.h"
 #include "kconfig_core_log_settings.h"
+#include "kconfig_p.h"
+#include "kconfigdata_p.h"
 #include "ksharedconfig.h"
-#include "kconfigdata.h"
 
 #include <QDate>
-#include <QSharedData>
+#include <QDir>
 #include <QFile>
 #include <QPoint>
 #include <QRect>
+#include <QSharedData>
 #include <QString>
 #include <QTextStream>
-#include <QDir>
 #include <QUrl>
 
+#include <algorithm>
+#include <array>
+#include <math.h>
 #include <stdlib.h>
 
 class KConfigGroupPrivate : public QSharedData
 {
 public:
     KConfigGroupPrivate(KConfig *owner, bool isImmutable, bool isConst, const QByteArray &name)
-        : mOwner(owner), mName(name), bImmutable(isImmutable), bConst(isConst)
+        : mOwner(owner)
+        , mName(name)
+        , bImmutable(isImmutable)
+        , bConst(isConst)
     {
     }
 
     KConfigGroupPrivate(const KSharedConfigPtr &owner, const QByteArray &name)
-        : sOwner(owner), mOwner(sOwner.data()), mName(name),
-          bImmutable(name.isEmpty() ? owner->isImmutable() : owner->isGroupImmutable(name)), bConst(false)
+        : sOwner(owner)
+        , mOwner(sOwner.data())
+        , mName(name)
+        , bImmutable(name.isEmpty() ? owner->isImmutable() : owner->isGroupImmutable(name))
+        , bConst(false)
     {
     }
 
     KConfigGroupPrivate(KConfigGroup *parent, bool isImmutable, bool isConst, const QByteArray &name)
-        : sOwner(parent->d->sOwner), mOwner(parent->d->mOwner), mName(name),
-          bImmutable(isImmutable), bConst(isConst)
+        : sOwner(parent->d->sOwner)
+        , mOwner(parent->d->mOwner)
+        , mName(name)
+        , bImmutable(isImmutable)
+        , bConst(isConst)
     {
         if (!parent->d->mName.isEmpty()) {
             mParent = parent->d;
@@ -65,8 +64,11 @@ public:
     }
 
     KConfigGroupPrivate(const KConfigGroupPrivate *other, bool isImmutable, const QByteArray &name)
-        : sOwner(other->sOwner), mOwner(other->mOwner), mName(name),
-          bImmutable(isImmutable), bConst(other->bConst)
+        : sOwner(other->sOwner)
+        , mOwner(other->mOwner)
+        , mName(name)
+        , bImmutable(isImmutable)
+        , bConst(other->bConst)
     {
         if (!other->mName.isEmpty()) {
             mParent = const_cast<KConfigGroupPrivate *>(other);
@@ -79,8 +81,8 @@ public:
     QByteArray mName;
 
     /* bitfield */
-    const bool bImmutable: 1; // is this group immutable?
-    const bool bConst: 1; // is this group read-only?
+    const bool bImmutable : 1; // is this group immutable?
+    const bool bConst : 1; // is this group read-only?
 
     QByteArray fullName() const
     {
@@ -106,10 +108,7 @@ public:
         return fullName() + '\x1d' + aGroup;
     }
 
-    static QExplicitlySharedDataPointer<KConfigGroupPrivate> create(KConfigBase *master,
-            const QByteArray &name,
-            bool isImmutable,
-            bool isConst)
+    static QExplicitlySharedDataPointer<KConfigGroupPrivate> create(KConfigBase *master, const QByteArray &name, bool isImmutable, bool isConst)
     {
         QExplicitlySharedDataPointer<KConfigGroupPrivate> data;
         if (dynamic_cast<KConfigGroup *>(master)) {
@@ -129,8 +128,8 @@ QByteArray KConfigGroupPrivate::serializeList(const QList<QByteArray> &list)
     QByteArray value;
 
     if (!list.isEmpty()) {
-        QList<QByteArray>::ConstIterator it = list.constBegin();
-        const QList<QByteArray>::ConstIterator end = list.constEnd();
+        auto it = list.cbegin();
+        const auto end = list.cend();
 
         value = QByteArray(*it).replace('\\', QByteArrayLiteral("\\\\")).replace(',', QByteArrayLiteral("\\,"));
 
@@ -210,9 +209,7 @@ static QVector<qreal> asRealList(const QByteArray &string)
 static QString errString(const char *pKey, const QByteArray &value, const QVariant &aDefault)
 {
     return QStringLiteral("\"%1\" - conversion of \"%3\" to %2 failed")
-           .arg(QString::fromLatin1(pKey),
-                QString::fromLatin1(QVariant::typeToName(aDefault.type())),
-                QString::fromLatin1(value));
+        .arg(QString::fromLatin1(pKey), QString::fromLatin1(QVariant::typeToName(aDefault.type())), QString::fromLatin1(value));
 }
 
 static QString formatError(int expected, int got)
@@ -239,11 +236,11 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
     case QMetaType::QByteArray:
         return value;
     case QMetaType::Bool: {
-        const QByteArray lower(value.toLower());
-        if (lower == "false" || lower == "no" || lower == "off" || lower == "0") {
-            return false;
-        }
-        return true;
+        static const std::array<const char *, 4> negatives = {"false", "no", "off", "0"};
+
+        return std::all_of(negatives.begin(), negatives.end(), [value](const char *negativeString) {
+            return value.compare(negativeString, Qt::CaseInsensitive) != 0;
+        });
     }
     case QMetaType::Double:
     case QMetaType::Float:
@@ -261,8 +258,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asIntList(value);
 
         if (list.count() != 2) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(2, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(2, list.count());
             return aDefault;
         }
         return QPoint(list.at(0), list.at(1));
@@ -271,8 +267,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asRealList(value);
 
         if (list.count() != 2) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(2, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(2, list.count());
             return aDefault;
         }
         return QPointF(list.at(0), list.at(1));
@@ -281,8 +276,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asIntList(value);
 
         if (list.count() != 4) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(4, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(4, list.count());
             return aDefault;
         }
         const QRect rect(list.at(0), list.at(1), list.at(2), list.at(3));
@@ -296,8 +290,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asRealList(value);
 
         if (list.count() != 4) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(4, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(4, list.count());
             return aDefault;
         }
         const QRectF rect(list.at(0), list.at(1), list.at(2), list.at(3));
@@ -311,8 +304,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asIntList(value);
 
         if (list.count() != 2) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(2, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(2, list.count());
             return aDefault;
         }
         const QSize size(list.at(0), list.at(1));
@@ -326,8 +318,7 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         const auto list = asRealList(value);
 
         if (list.count() != 2) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(2, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(2, list.count());
             return aDefault;
         }
         const QSizeF size(list.at(0), list.at(1));
@@ -338,14 +329,17 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
         return size;
     }
     case QMetaType::QDateTime: {
-        const auto list = asIntList(value);
-        if (list.count() != 6) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(6, list.count());
+        const auto list = asRealList(value);
+        if (list.count() < 6) {
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(6, list.count());
             return aDefault;
         }
         const QDate date(list.at(0), list.at(1), list.at(2));
-        const QTime time(list.at(3), list.at(4), list.at(5));
+        const qreal totalSeconds = list.at(5);
+        qreal seconds;
+        const qreal fractional = modf(totalSeconds, &seconds);
+        const qreal milliseconds = round(fractional * 1000.0);
+        const QTime time(list.at(3), list.at(4), seconds, milliseconds);
         const QDateTime dt(date, time);
         if (!dt.isValid()) {
             qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault);
@@ -356,11 +350,10 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
     case QMetaType::QDate: {
         auto list = asIntList(value);
         if (list.count() == 6) {
-            list = list.mid(0, 3);    // don't break config files that stored QDate as QDateTime
+            list = list.mid(0, 3); // don't break config files that stored QDate as QDateTime
         }
         if (list.count() != 3) {
-            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault)
-                                        << formatError(3, list.count());
+            qCWarning(KCONFIG_CORE_LOG) << errString(pKey, value, aDefault) << formatError(3, list.count());
             return aDefault;
         }
         const QDate date(list.at(0), list.at(1), list.at(2));
@@ -372,10 +365,9 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
     }
     case QMetaType::QColor:
     case QMetaType::QFont:
-        qCWarning(KCONFIG_CORE_LOG) << "KConfigGroup::readEntry was passed GUI type '"
-                                    << aDefault.typeName()
+        qCWarning(KCONFIG_CORE_LOG) << "KConfigGroup::readEntry was passed GUI type '" << aDefault.typeName()
                                     << "' but KConfigGui isn't linked! If it is linked to your program, "
-                                    "this is a platform bug. Please inform the KDE developers";
+                                       "this is a platform bug. Please inform the KDE developers";
         break;
     case QMetaType::QUrl:
         return QUrl(QString::fromUtf8(value));
@@ -389,12 +381,12 @@ QVariant KConfigGroup::convertToQVariant(const char *pKey, const QByteArray &val
 }
 
 #ifdef Q_OS_WIN
-# include <QDir>
+#include <QDir>
 #endif
 
 static bool cleanHomeDirPath(QString &path, const QString &homeDir)
 {
-#ifdef Q_OS_WIN //safer
+#ifdef Q_OS_WIN // safer
     if (!QDir::toNativeSeparators(path).startsWith(QDir::toNativeSeparators(homeDir))) {
         return false;
     }
@@ -414,7 +406,7 @@ static bool cleanHomeDirPath(QString &path, const QString &homeDir)
     return false;
 }
 
-static QString translatePath(QString path)   // krazy:exclude=passbyvalue
+static QString translatePath(QString path) // krazy:exclude=passbyvalue
 {
     if (path.isEmpty()) {
         return path;
@@ -437,9 +429,7 @@ static QString translatePath(QString path)   // krazy:exclude=passbyvalue
     const QString homeDir0 = QFile::decodeName(qgetenv("HOME"));
     const QString homeDir1 = QDir::homePath();
     const QString homeDir2 = QDir(homeDir1).canonicalPath();
-    if (cleanHomeDirPath(path, homeDir0) ||
-        cleanHomeDirPath(path, homeDir1) ||
-        cleanHomeDirPath(path, homeDir2)) {
+    if (cleanHomeDirPath(path, homeDir0) || cleanHomeDirPath(path, homeDir1) || cleanHomeDirPath(path, homeDir2)) {
         // qDebug() << "Path was replaced\n";
     }
 
@@ -450,7 +440,8 @@ static QString translatePath(QString path)   // krazy:exclude=passbyvalue
     return path;
 }
 
-KConfigGroup::KConfigGroup() : d()
+KConfigGroup::KConfigGroup()
+    : d()
 {
 }
 
@@ -460,8 +451,7 @@ bool KConfigGroup::isValid() const
 }
 
 KConfigGroupGui _kde_internal_KConfigGroupGui;
-static inline bool readEntryGui(const QByteArray &data, const char *key, const QVariant &input,
-                                QVariant &output)
+static inline bool readEntryGui(const QByteArray &data, const char *key, const QVariant &input, QVariant &output)
 {
     if (_kde_internal_KConfigGroupGui.readEntryGui) {
         return _kde_internal_KConfigGroupGui.readEntryGui(data, key, input, output);
@@ -469,8 +459,7 @@ static inline bool readEntryGui(const QByteArray &data, const char *key, const Q
     return false;
 }
 
-static inline bool writeEntryGui(KConfigGroup *cg, const char *key, const QVariant &input,
-                                 KConfigGroup::WriteConfigFlags flags)
+static inline bool writeEntryGui(KConfigGroup *cg, const char *key, const QVariant &input, KConfigGroup::WriteConfigFlags flags)
 {
     if (_kde_internal_KConfigGroupGui.writeEntryGui) {
         return _kde_internal_KConfigGroupGui.writeEntryGui(cg, key, input, flags);
@@ -543,8 +532,7 @@ const KConfigGroup KConfigGroup::groupImpl(const QByteArray &aGroup) const
 
     KConfigGroup newGroup;
 
-    newGroup.d = new KConfigGroupPrivate(const_cast<KConfigGroup *>(this), isGroupImmutableImpl(aGroup),
-                                         true, aGroup);
+    newGroup.d = new KConfigGroupPrivate(const_cast<KConfigGroup *>(this), isGroupImmutableImpl(aGroup), true, aGroup);
 
     return newGroup;
 }
@@ -642,8 +630,7 @@ bool KConfigGroup::isEntryImmutable(const char *key) const
 {
     Q_ASSERT_X(isValid(), "KConfigGroup::isEntryImmutable", "accessing an invalid group");
 
-    return (isImmutable() ||
-            !config()->d_func()->canWriteEntry(d->fullName(), key, config()->readDefaults()));
+    return (isImmutable() || !config()->d_func()->canWriteEntry(d->fullName(), key, config()->readDefaults()));
 }
 
 bool KConfigGroup::isEntryImmutable(const QString &key) const
@@ -684,8 +671,7 @@ QString KConfigGroup::readEntry(const char *key, const QString &aDefault) const
     bool expand = false;
 
     // read value from the entry map
-    QString aValue = config()->d_func()->lookupData(d->fullName(), key, KEntryMap::SearchLocalized,
-                     &expand);
+    QString aValue = config()->d_func()->lookupData(d->fullName(), key, KEntryMap::SearchLocalized, &expand);
     if (aValue.isNull()) {
         aValue = aDefault;
     }
@@ -817,8 +803,7 @@ QString KConfigGroup::readPathEntry(const char *key, const QString &aDefault) co
 
     bool expand = false;
 
-    QString aValue = config()->d_func()->lookupData(d->fullName(), key, KEntryMap::SearchLocalized,
-                     &expand);
+    QString aValue = config()->d_func()->lookupData(d->fullName(), key, KEntryMap::SearchLocalized, &expand);
     if (aValue.isNull()) {
         aValue = aDefault;
     }
@@ -869,8 +854,7 @@ void KConfigGroup::writeEntry(const char *key, const char *value, WriteConfigFla
     writeEntry(key, QVariant(QString::fromLatin1(value)), pFlags);
 }
 
-void KConfigGroup::writeEntry(const char *key, const QByteArray &value,
-                              WriteConfigFlags flags)
+void KConfigGroup::writeEntry(const char *key, const QByteArray &value, WriteConfigFlags flags)
 {
     Q_ASSERT_X(isValid(), "KConfigGroup::writeEntry", "accessing an invalid group");
     Q_ASSERT_X(!d->bConst, "KConfigGroup::writeEntry", "writing to a read-only group");
@@ -878,8 +862,7 @@ void KConfigGroup::writeEntry(const char *key, const QByteArray &value,
     config()->d_func()->putData(d->fullName(), key, value.isNull() ? QByteArray("") : value, flags);
 }
 
-void KConfigGroup::writeEntry(const QString &key, const QByteArray &value,
-                              WriteConfigFlags pFlags)
+void KConfigGroup::writeEntry(const QString &key, const QByteArray &value, WriteConfigFlags pFlags)
 {
     writeEntry(key.toUtf8().constData(), value, pFlags);
 }
@@ -923,14 +906,13 @@ void KConfigGroup::writeEntry(const char *key, const QVariantList &list, WriteCo
     writeEntry(key, KConfigGroupPrivate::serializeList(data), flags);
 }
 
-void KConfigGroup::writeEntry(const char *key, const QVariant &value,
-                              WriteConfigFlags flags)
+void KConfigGroup::writeEntry(const char *key, const QVariant &value, WriteConfigFlags flags)
 {
     Q_ASSERT_X(isValid(), "KConfigGroup::writeEntry", "accessing an invalid group");
     Q_ASSERT_X(!d->bConst, "KConfigGroup::writeEntry", "writing to a read-only group");
 
     if (writeEntryGui(this, key, value, flags)) {
-        return;    // GUI type that was handled
+        return; // GUI type that was handled
     }
 
     QByteArray data;
@@ -955,9 +937,11 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
         data = value.toString().toUtf8();
         break;
     case QMetaType::QVariantList:
-        if (!value.canConvert(QMetaType::QStringList))
-            qCWarning(KCONFIG_CORE_LOG) << "not all types in \"" << key << "\" can convert to QString,"
-                                        " information will be lost";
+        if (!value.canConvert(QMetaType::QStringList)) {
+            qCWarning(KCONFIG_CORE_LOG) << "not all types in \"" << key
+                                        << "\" can convert to QString,"
+                                           " information will be lost";
+        }
         Q_FALLTHROUGH();
     case QMetaType::QStringList:
         writeEntry(key, value.toList(), flags);
@@ -965,10 +949,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QPoint: {
         const QPoint rPoint = value.toPoint();
 
-        const QVariantList list{
-            rPoint.x(),
-            rPoint.y()
-        };
+        const QVariantList list{rPoint.x(), rPoint.y()};
 
         writeEntry(key, list, flags);
         return;
@@ -976,10 +957,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QPointF: {
         const QPointF point = value.toPointF();
 
-        const QVariantList list{
-            point.x(),
-            point.y()
-        };
+        const QVariantList list{point.x(), point.y()};
 
         writeEntry(key, list, flags);
         return;
@@ -987,12 +965,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QRect: {
         const QRect rRect = value.toRect();
 
-        const QVariantList list{
-            rRect.left(),
-            rRect.top(),
-            rRect.width(),
-            rRect.height()
-        };
+        const QVariantList list{rRect.left(), rRect.top(), rRect.width(), rRect.height()};
 
         writeEntry(key, list, flags);
         return;
@@ -1000,12 +973,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QRectF: {
         const QRectF rRectF = value.toRectF();
 
-        const QVariantList list{
-            rRectF.left(),
-            rRectF.top(),
-            rRectF.width(),
-            rRectF.height()
-        };
+        const QVariantList list{rRectF.left(), rRectF.top(), rRectF.width(), rRectF.height()};
 
         writeEntry(key, list, flags);
         return;
@@ -1013,10 +981,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QSize: {
         const QSize rSize = value.toSize();
 
-        const QVariantList list{
-            rSize.width(),
-            rSize.height()
-        };
+        const QVariantList list{rSize.width(), rSize.height()};
 
         writeEntry(key, list, flags);
         return;
@@ -1024,10 +989,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QSizeF: {
         const QSizeF rSizeF = value.toSizeF();
 
-        const QVariantList list{
-            rSizeF.width(),
-            rSizeF.height()
-        };
+        const QVariantList list{rSizeF.width(), rSizeF.height()};
 
         writeEntry(key, list, flags);
         return;
@@ -1035,11 +997,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
     case QMetaType::QDate: {
         const QDate date = value.toDate();
 
-        const QVariantList list{
-            date.year(),
-            date.month(),
-            date.day()
-        };
+        const QVariantList list{date.year(), date.month(), date.day()};
 
         writeEntry(key, list, flags);
         return;
@@ -1057,7 +1015,7 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
 
             time.hour(),
             time.minute(),
-            time.second(),
+            time.second() + time.msec() / 1000.0,
         };
 
         writeEntry(key, list, flags);
@@ -1066,10 +1024,9 @@ void KConfigGroup::writeEntry(const char *key, const QVariant &value,
 
     case QMetaType::QColor:
     case QMetaType::QFont:
-        qCWarning(KCONFIG_CORE_LOG) << "KConfigGroup::writeEntry was passed GUI type '"
-                                    << value.typeName()
+        qCWarning(KCONFIG_CORE_LOG) << "KConfigGroup::writeEntry was passed GUI type '" << value.typeName()
                                     << "' but KConfigGui isn't linked! If it is linked to your program, this is a platform bug. "
-                                    "Please inform the KDE developers";
+                                       "Please inform the KDE developers";
         break;
     case QMetaType::QUrl:
         data = QUrl(value.toUrl()).toString().toUtf8();
@@ -1106,13 +1063,9 @@ void KConfigGroup::writeXdgListEntry(const char *key, const QStringList &list, W
 
     // XXX List serialization being a separate layer from low-level escaping is
     // probably a bug. No affected entries are defined, though.
-    QStringList::ConstIterator it = list.constBegin();
-    const QStringList::ConstIterator end = list.constEnd();
-    for (; it != end; ++it) {
-        QString val(*it);
+    for (QString val : list) { // clazy:exclude=range-loop
         val.replace(QLatin1Char('\\'), QLatin1String("\\\\")).replace(QLatin1Char(';'), QLatin1String("\\;"));
-        value += val;
-        value += QLatin1Char(';');
+        value += val + QLatin1Char(';');
     }
 
     writeEntry(key, value, flags);
@@ -1272,7 +1225,7 @@ bool KConfigGroup::isGroupImmutableImpl(const QByteArray &b) const
     Q_ASSERT_X(isValid(), "KConfigGroup::isGroupImmutableImpl", "accessing an invalid group");
 
     if (!hasGroupImpl(b)) { // group doesn't exist yet
-        return d->bImmutable;    // child groups are immutable if the parent is immutable.
+        return d->bImmutable; // child groups are immutable if the parent is immutable.
     }
 
     return config()->isGroupImmutable(d->fullName(b));
@@ -1305,4 +1258,30 @@ void KConfigGroup::reparent(KConfigBase *parent, WriteConfigFlags pFlags)
     d = KConfigGroupPrivate::create(parent, d->mName, false, false);
     oldGroup.copyTo(this, pFlags);
     oldGroup.deleteGroup(); // so that the entries with the old group name are deleted on sync
+}
+
+void KConfigGroup::moveValuesTo(const QList<const char *> &keys, KConfigGroup &other, WriteConfigFlags pFlags)
+{
+    Q_ASSERT(isValid());
+    Q_ASSERT(other.isValid());
+
+    for (const auto key : keys) {
+        const QByteArray groupName = name().toLocal8Bit();
+        const auto entry = config()->d_ptr->lookupInternalEntry(groupName, key, KEntryMap::SearchLocalized);
+
+        // Only write the entry if it is not null, if it is a global enry there is no point in moving it
+        if (!entry.mValue.isNull() && !entry.bGlobal) {
+            deleteEntry(key, pFlags);
+            KEntryMap::EntryOptions options = KEntryMap::EntryOption::EntryDirty;
+            if (entry.bDeleted) {
+                options |= KEntryMap::EntryDeleted;
+            }
+
+            if (entry.bExpand) {
+                options |= KEntryMap::EntryExpansion;
+            }
+
+            other.config()->d_ptr->setEntryData(other.name().toLocal8Bit(), key, entry.mValue, options);
+        }
+    }
 }

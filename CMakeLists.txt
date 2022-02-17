@@ -1,37 +1,19 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
-set(KF5_VERSION "5.69.0") # handled by release scripts
-project(KConfig VERSION ${KF5_VERSION})
+set(KF_VERSION "5.92.0") # handled by release scripts
+project(KConfig VERSION ${KF_VERSION})
 
 include(FeatureSummary)
-find_package(ECM 5.68.0  NO_MODULE)
+find_package(ECM 5.91.0  NO_MODULE)
 set_package_properties(ECM PROPERTIES TYPE REQUIRED DESCRIPTION "Extra CMake Modules." URL "https://commits.kde.org/extra-cmake-modules")
 feature_summary(WHAT REQUIRED_PACKAGES_NOT_FOUND FATAL_ON_MISSING_REQUIRED_PACKAGES)
 
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
-set(REQUIRED_QT_VERSION 5.12.0)
-
-find_package(Qt5 ${REQUIRED_QT_VERSION} CONFIG REQUIRED Xml)
-option(KCONFIG_USE_GUI "Build components using Qt5Gui" ON)
-if(KCONFIG_USE_GUI)
-    find_package(Qt5 ${REQUIRED_QT_VERSION} CONFIG REQUIRED Gui)
-endif()
-
-if (NOT ANDROID)
-    option(KCONFIG_USE_DBUS "Build components using Qt5DBus" ON)
-    if(KCONFIG_USE_DBUS)
-        find_package(Qt5 ${REQUIRED_QT_VERSION} CONFIG REQUIRED DBus)
-    endif()
-else()
-    set(KCONFIG_USE_DBUS Off)
-endif()
-
-
 include(KDEInstallDirs)
 include(KDEFrameworkCompilerSettings NO_POLICY_SCOPE)
 include(KDECMakeSettings)
-
+include(KDEGitCommitHooks)
 
 include(ECMGenerateExportHeader)
 include(ECMSetupVersion)
@@ -40,6 +22,25 @@ include(ECMMarkNonGuiExecutable)
 include(ECMPoQmTools)
 include(ECMAddQch)
 include(ECMQtDeclareLoggingCategory)
+include(ECMDeprecationSettings)
+
+set(REQUIRED_QT_VERSION 5.15.2)
+
+find_package(Qt${QT_MAJOR_VERSION} ${REQUIRED_QT_VERSION} CONFIG REQUIRED Xml)
+option(KCONFIG_USE_GUI "Build components using Qt${QT_MAJOR_VERSION}Gui" ON)
+if(KCONFIG_USE_GUI)
+    find_package(Qt${QT_MAJOR_VERSION} ${REQUIRED_QT_VERSION} CONFIG REQUIRED Gui)
+endif()
+find_package(Qt${QT_MAJOR_VERSION} ${REQUIRED_QT_VERSION} OPTIONAL_COMPONENTS Qml)
+
+if (NOT ANDROID)
+    option(KCONFIG_USE_DBUS "Build components using Qt${QT_MAJOR_VERSION}DBus" ON)
+    if(KCONFIG_USE_DBUS)
+        find_package(Qt${QT_MAJOR_VERSION} ${REQUIRED_QT_VERSION} CONFIG REQUIRED DBus)
+    endif()
+else()
+    set(KCONFIG_USE_DBUS Off)
+endif()
 
 set(EXCLUDE_DEPRECATED_BEFORE_AND_AT 0 CACHE STRING "Control the range of deprecated API excluded from the build [default=0].")
 
@@ -51,8 +52,9 @@ ecm_setup_version(PROJECT VARIABLE_PREFIX KCONFIG
                         PACKAGE_VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/KF5ConfigConfigVersion.cmake"
                         SOVERSION 5)
 
-add_definitions(-DQT_NO_FOREACH)
-add_definitions(-DQT_DISABLE_DEPRECATED_BEFORE=0x050d00)
+ecm_set_disabled_deprecation_versions(
+    QT 5.15.2
+)
 
 add_subdirectory(src)
 if (BUILD_TESTING)
@@ -60,9 +62,7 @@ if (BUILD_TESTING)
 endif()
 
 include (ECMPoQmTools)
-if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/po")
-   ecm_install_po_files_as_qm(po)
-endif()
+ecm_install_po_files_as_qm(po)
 
 
 # create a Config.cmake and a ConfigVersion.cmake file and install them
@@ -100,7 +100,9 @@ install(EXPORT KF5ConfigCompilerTargets DESTINATION "${CMAKECONFIG_INSTALL_DIR}"
         FILE KF5ConfigCompilerTargets.cmake NAMESPACE KF5:: COMPONENT Devel)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kconfig_version.h
-        DESTINATION ${KDE_INSTALL_INCLUDEDIR_KF5} COMPONENT Devel )
+        DESTINATION ${KDE_INSTALL_INCLUDEDIR_KF}/KConfig COMPONENT Devel)
 
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
+
+kde_configure_git_pre_commit_hook(CHECKS CLANG_FORMAT)

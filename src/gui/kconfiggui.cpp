@@ -1,25 +1,12 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 1999 Matthias Ettrich <ettrich@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1999 Matthias Ettrich <ettrich@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) version 3, or any
-   later version accepted by the membership of KDE e.V. (or its
-   successor approved by the membership of KDE e.V.), which shall
-   act as a proxy defined in Section 6 of version 3 of the license.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
-
-   You should have received a copy of the GNU Lesser General Public
-   License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+    SPDX-License-Identifier: LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL
 */
 
 #include "kconfiggui.h"
+#include "kconfig_gui_log_settings.h"
 
 #include <QGuiApplication>
 
@@ -27,9 +14,7 @@
 
 static QString configName(const QString &id, const QString &key)
 {
-    return(QLatin1String("session/") + QGuiApplication::applicationName() +
-           QLatin1Char('_')          + id                                 +
-           QLatin1Char('_')          + key);
+    return QLatin1String("session/%1_%2_%3").arg(QGuiApplication::applicationName(), id, key);
 }
 
 static KConfig *s_sessionConfig = nullptr;
@@ -37,15 +22,14 @@ static KConfig *s_sessionConfig = nullptr;
 KConfig *KConfigGui::sessionConfig()
 {
 #ifdef QT_NO_SESSIONMANAGER
-#error QT_NO_SESSIONMANAGER was set, this will not compile. Reconfigure Qt with Session management support.
-#endif
+    qCWarning(KCONFIG_GUI_LOG) << "Qt is built without session manager support";
+#else
     if (!hasSessionConfig() && qApp->isSessionRestored()) {
         // create the default instance specific config object
         // from applications' -session command line parameter
-        s_sessionConfig = new KConfig(configName(qApp->sessionId(),
-                                                 qApp->sessionKey()),
-                                      KConfig::SimpleConfig);
+        s_sessionConfig = new KConfig(configName(qApp->sessionId(), qApp->sessionKey()), KConfig::SimpleConfig);
     }
+#endif
 
     return s_sessionConfig;
 }
@@ -58,8 +42,7 @@ void KConfigGui::setSessionConfig(const QString &id, const QString &key)
     }
 
     // create a new instance specific config object from supplied id & key
-    s_sessionConfig = new KConfig(configName(id, key),
-                                  KConfig::SimpleConfig);
+    s_sessionConfig = new KConfig(configName(id, key), KConfig::SimpleConfig);
 }
 
 bool KConfigGui::hasSessionConfig()

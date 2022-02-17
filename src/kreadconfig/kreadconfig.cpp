@@ -1,21 +1,9 @@
 /*  Read KConfig() entries - for use in shell scripts.
 
-    Copyright (c) 2001 Red Hat, Inc.
+    SPDX-FileCopyrightText: 2001 Red Hat, Inc.
+    SPDX-FileContributor: Programmed by Bernhard Rosenkraenzer <bero@redhat.com>
 
-    Programmed by Bernhard Rosenkraenzer <bero@redhat.com>
-
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License as
-    published by the Free Software Foundation; either version 2 of
-    the License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    SPDX-License-Identifier: GPL-2.0-or-later
 */
 
 /*
@@ -50,64 +38,84 @@
 
 int main(int argc, char **argv)
 {
-	QCoreApplication app(argc, argv);
+    QCoreApplication app(argc, argv);
 
-	QCommandLineParser parser;
-    parser.addOption(QCommandLineOption(QStringLiteral("file"), QCoreApplication::translate("main", "Use <file> instead of global config"), QStringLiteral("file")));
-    parser.addOption(QCommandLineOption(QStringLiteral("group"), QCoreApplication::translate("main", "Group to look in. Use repeatedly for nested groups."), QStringLiteral("group"), QStringLiteral("KDE")));
+    QCommandLineParser parser;
+    parser.addHelpOption();
+    parser.addOption(
+        QCommandLineOption(QStringLiteral("file"), QCoreApplication::translate("main", "Use <file> instead of global config"), QStringLiteral("file")));
+    parser.addOption(
+        QCommandLineOption(QStringLiteral("group"),
+                           QCoreApplication::translate("main", "Group to look in. Use \"<default>\" for the root group, or use repeatedly for nested groups."),
+                           QStringLiteral("group"),
+                           QStringLiteral("KDE")));
     parser.addOption(QCommandLineOption(QStringLiteral("key"), QCoreApplication::translate("main", "Key to look for"), QStringLiteral("key")));
     parser.addOption(QCommandLineOption(QStringLiteral("default"), QCoreApplication::translate("main", "Default value"), QStringLiteral("value")));
     parser.addOption(QCommandLineOption(QStringLiteral("type"), QCoreApplication::translate("main", "Type of variable"), QStringLiteral("type")));
 
-	parser.process(app);
+    parser.process(app);
 
-    const QStringList groups=parser.values(QStringLiteral("group"));
-    QString key=parser.value(QStringLiteral("key"));
-    QString file=parser.value(QStringLiteral("file"));
-    QString dflt=parser.value(QStringLiteral("default"));
-    QString type=parser.value(QStringLiteral("type")).toLower();
+    const QStringList groups = parser.values(QStringLiteral("group"));
+    QString key = parser.value(QStringLiteral("key"));
+    QString file = parser.value(QStringLiteral("file"));
+    QString dflt = parser.value(QStringLiteral("default"));
+    QString type = parser.value(QStringLiteral("type")).toLower();
 
     if (key.isNull() || !parser.positionalArguments().isEmpty()) {
-		parser.showHelp(1);
-	}
+        parser.showHelp(1);
+    }
 
-	KSharedConfig::openConfig();
+    KSharedConfig::openConfig();
 
-	KConfig *konfig;
-	bool configMustDeleted = false;
-	if (file.isEmpty())
-	   konfig = KSharedConfig::openConfig().data();
-	else
-	{
-		konfig = new KConfig( file, KConfig::NoGlobals );
-		configMustDeleted=true;
-	}
-	KConfigGroup cfgGroup = konfig->group(QString());
-    for (const QString &grp : groups)
-		cfgGroup = cfgGroup.group(grp);
-    if(type==QStringLiteral("bool")) {
-		dflt=dflt.toLower();
-        bool def=(dflt==QStringLiteral("true") || dflt==QStringLiteral("on") || dflt==QStringLiteral("yes") || dflt==QStringLiteral("1"));
-		bool retValue = !cfgGroup.readEntry(key, def);
-		if ( configMustDeleted )
-			delete konfig;
-		return retValue;
-    } else if((type==QStringLiteral("num")) || (type==QStringLiteral("int"))) {
-		int retValue = cfgGroup.readEntry(key, dflt.toInt());
-		if ( configMustDeleted )
-			delete konfig;
-		return retValue;
-    } else if (type==QStringLiteral("path")){
-		fprintf(stdout, "%s\n", cfgGroup.readPathEntry(key, dflt).toLocal8Bit().data());
-		if ( configMustDeleted )
-			delete konfig;
-		return 0;
-	} else {
-		/* Assume it's a string... */
-		fprintf(stdout, "%s\n", cfgGroup.readEntry(key, dflt).toLocal8Bit().data());
-		if ( configMustDeleted )
-			delete konfig;
-		return 0;
-	}
+    KConfig *konfig;
+    bool configMustDeleted = false;
+    if (file.isEmpty()) {
+        konfig = KSharedConfig::openConfig().data();
+    } else {
+        konfig = new KConfig(file, KConfig::NoGlobals);
+        configMustDeleted = true;
+    }
+    KConfigGroup cfgGroup = konfig->group(QString());
+    for (const QString &grp : groups) {
+        if (grp.isEmpty()) {
+            fprintf(stderr,
+                    "%s: %s\n",
+                    qPrintable(QCoreApplication::applicationName()),
+                    qPrintable(QCoreApplication::translate("main", "Group name cannot be empty, use \"<default>\" for the root group")));
+            if (configMustDeleted) {
+                delete konfig;
+            }
+            return 2;
+        }
+        cfgGroup = cfgGroup.group(grp);
+    }
+
+    if (type == QLatin1String{"bool"}) {
+        dflt = dflt.toLower();
+        bool def = (dflt == QLatin1String{"true"} || dflt == QLatin1String{"on"} || dflt == QLatin1String{"yes"} || dflt == QLatin1String{"1"});
+        bool retValue = !cfgGroup.readEntry(key, def);
+        if (configMustDeleted) {
+            delete konfig;
+        }
+        return retValue;
+    } else if (type == QLatin1String{"num"} || type == QLatin1String{"int"}) {
+        int retValue = cfgGroup.readEntry(key, dflt.toInt());
+        if (configMustDeleted) {
+            delete konfig;
+        }
+        return retValue;
+    } else if (type == QLatin1String{"path"}) {
+        fprintf(stdout, "%s\n", cfgGroup.readPathEntry(key, dflt).toLocal8Bit().data());
+        if (configMustDeleted) {
+            delete konfig;
+        }
+        return 0;
+    } else {
+        /* Assume it's a string... */
+        fprintf(stdout, "%s\n", cfgGroup.readEntry(key, dflt).toLocal8Bit().data());
+        if (configMustDeleted) {
+            delete konfig;
+        }
+        return 0;
+    }
 }
-

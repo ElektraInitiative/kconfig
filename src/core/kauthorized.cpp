@@ -1,68 +1,71 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 1997 Matthias Kalle Dalheimer (kalle@kde.org)
-    Copyright (C) 1998, 1999, 2000 Waldo Bastian <bastian@kde.org>
+/*  This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    SPDX-FileCopyrightText: 1998, 1999, 2000 Waldo Bastian <bastian@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kauthorized.h"
 
+#include <QDebug>
 #include <QDir>
 #include <QList>
 #include <QUrl>
 
+#include "kconfig_core_log_settings.h"
 #include <QCoreApplication>
 #include <ksharedconfig.h>
 #include <stdlib.h> // srand(), rand()
 #ifndef Q_OS_WIN
-#include <unistd.h>
 #include <netdb.h>
+#include <unistd.h>
 #endif
 
 #include <kconfiggroup.h>
 
 #include <QMutex>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 
 extern bool kde_kiosk_exception;
 
 class URLActionRule
 {
 public:
-#define checkExactMatch(s, b) \
-    if (s.isEmpty()) b = true; \
-    else if (s[s.length()-1] == QLatin1Char('!')) \
-    { b = false; s.chop(1); } \
-    else b = true;
-#define checkStartWildCard(s, b) \
-    if (s.isEmpty()) b = true; \
-    else if (s[0] == QLatin1Char('*')) \
-    { b = true; s.remove(0, 1); } \
-    else b = false;
-#define checkEqual(s, b) \
-    b = (s == QLatin1String("="));
+#define checkExactMatch(s, b)                                                                                                                                  \
+    if (s.isEmpty())                                                                                                                                           \
+        b = true;                                                                                                                                              \
+    else if (s[s.length() - 1] == QLatin1Char('!')) {                                                                                                          \
+        b = false;                                                                                                                                             \
+        s.chop(1);                                                                                                                                             \
+    } else                                                                                                                                                     \
+        b = true;
+#define checkStartWildCard(s, b)                                                                                                                               \
+    if (s.isEmpty())                                                                                                                                           \
+        b = true;                                                                                                                                              \
+    else if (s[0] == QLatin1Char('*')) {                                                                                                                       \
+        b = true;                                                                                                                                              \
+        s.remove(0, 1);                                                                                                                                        \
+    } else                                                                                                                                                     \
+        b = false;
+#define checkEqual(s, b) b = (s == QLatin1String("="));
 
     URLActionRule(const QByteArray &act,
-                  const QString &bProt, const QString &bHost, const QString &bPath,
-                  const QString &dProt, const QString &dHost, const QString &dPath,
+                  const QString &bProt,
+                  const QString &bHost,
+                  const QString &bPath,
+                  const QString &dProt,
+                  const QString &dHost,
+                  const QString &dPath,
                   bool perm)
-        : action(act),
-          baseProt(bProt), baseHost(bHost), basePath(bPath),
-          destProt(dProt), destHost(dHost), destPath(dPath),
-          permission(perm)
+        : action(act)
+        , baseProt(bProt)
+        , baseHost(bHost)
+        , basePath(bPath)
+        , destProt(dProt)
+        , destHost(dHost)
+        , destPath(dPath)
+        , permission(perm)
     {
         checkExactMatch(baseProt, baseProtWildCard);
         checkStartWildCard(baseHost, baseHostWildCard);
@@ -77,13 +80,14 @@ public:
     bool baseMatch(const QUrl &url, const QString &protClass) const
     {
         if (baseProtWildCard) {
-            if (!baseProt.isEmpty() && !url.scheme().startsWith(baseProt) &&
-                (protClass.isEmpty() || (protClass != baseProt))) {
+            if (!baseProt.isEmpty() //
+                && !url.scheme().startsWith(baseProt) //
+                && (protClass.isEmpty() || (protClass != baseProt))) {
                 return false;
             }
         } else {
-            if ((url.scheme() != baseProt) &&
-                (protClass.isEmpty() || (protClass != baseProt))) {
+            if (url.scheme() != baseProt //
+                && (protClass.isEmpty() || (protClass != baseProt))) {
                 return false;
             }
         }
@@ -111,18 +115,19 @@ public:
     bool destMatch(const QUrl &url, const QString &protClass, const QUrl &base, const QString &baseClass) const
     {
         if (destProtEqual) {
-            if ((url.scheme() != base.scheme()) &&
-                (protClass.isEmpty() || baseClass.isEmpty() || protClass != baseClass)) {
+            if (url.scheme() != base.scheme() //
+                && (protClass.isEmpty() || baseClass.isEmpty() || protClass != baseClass)) {
                 return false;
             }
         } else if (destProtWildCard) {
-            if (!destProt.isEmpty() && !url.scheme().startsWith(destProt) &&
-                (protClass.isEmpty() || (protClass != destProt))) {
+            if (!destProt.isEmpty() //
+                && !url.scheme().startsWith(destProt) //
+                && (protClass.isEmpty() || (protClass != destProt))) {
                 return false;
             }
         } else {
-            if ((url.scheme() != destProt) &&
-                (protClass.isEmpty() || (protClass != destProt))) {
+            if (url.scheme() != destProt //
+                && (protClass.isEmpty() || (protClass != destProt))) {
                 return false;
             }
         }
@@ -164,8 +169,8 @@ public:
     bool destProtWildCard : 1;
     bool destHostWildCard : 1;
     bool destPathWildCard : 1;
-    bool destProtEqual    : 1;
-    bool destHostEqual    : 1;
+    bool destProtEqual : 1;
+    bool destHostEqual : 1;
     bool permission;
 };
 
@@ -173,7 +178,8 @@ class KAuthorizedPrivate
 {
 public:
     KAuthorizedPrivate()
-        :   actionRestrictions(false), blockEverything(false), mutex(QMutex::Recursive)
+        : actionRestrictions(false)
+        , blockEverything(false)
     {
         Q_ASSERT_X(QCoreApplication::instance(), "KAuthorizedPrivate()", "There has to be an existing QCoreApplication::instance() pointer");
 
@@ -194,16 +200,16 @@ public:
     bool actionRestrictions : 1;
     bool blockEverything : 1;
     QList<URLActionRule> urlActionRestrictions;
-    QMutex mutex;
+    QRecursiveMutex mutex;
 };
 
 Q_GLOBAL_STATIC(KAuthorizedPrivate, authPrivate)
-#define MY_D KAuthorizedPrivate *d=authPrivate();
+#define MY_D KAuthorizedPrivate *d = authPrivate();
 
 bool KAuthorized::authorize(const QString &genericAction)
 {
-    MY_D
-    if (d->blockEverything) {
+    MY_D if (d->blockEverything)
+    {
         return false;
     }
 
@@ -215,10 +221,21 @@ bool KAuthorized::authorize(const QString &genericAction)
     return cg.readEntry(genericAction, true);
 }
 
+bool KAuthorized::authorize(KAuthorized::GenericRestriction action)
+{
+    const QMetaEnum metaEnum = QMetaEnum::fromType<KAuthorized::GenericRestriction>();
+
+    if (metaEnum.isValid() && action != 0) {
+        return KAuthorized::authorize(QString::fromLatin1(metaEnum.valueToKey(action)).toLower());
+    }
+    qCWarning(KCONFIG_CORE_LOG) << "Invalid GenericRestriction requested" << action;
+    return false;
+}
+
 bool KAuthorized::authorizeAction(const QString &action)
 {
-    MY_D
-    if (d->blockEverything) {
+    MY_D if (d->blockEverything)
+    {
         return false;
     }
     if (!d->actionRestrictions || action.isEmpty()) {
@@ -226,6 +243,16 @@ bool KAuthorized::authorizeAction(const QString &action)
     }
 
     return authorize(QLatin1String("action/") + action);
+}
+
+bool KAuthorized::authorizeAction(KAuthorized::GenericAction action)
+{
+    const QMetaEnum metaEnum = QMetaEnum::fromType<KAuthorized::GenericAction>();
+    if (metaEnum.isValid() && action != 0) {
+        return KAuthorized::authorizeAction(QString::fromLatin1(metaEnum.valueToKey(action)).toLower());
+    }
+    qCWarning(KCONFIG_CORE_LOG) << "Invalid GenericAction requested" << action;
+    return false;
 }
 
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 24)
@@ -248,62 +275,49 @@ QStringList KAuthorized::authorizeControlModules(const QStringList &menuIds)
 {
     KConfigGroup cg(KSharedConfig::openConfig(), "KDE Control Module Restrictions");
     QStringList result;
-    for (QStringList::ConstIterator it = menuIds.begin();
-         it != menuIds.end(); ++it) {
-        if (cg.readEntry(*it, true)) {
-            result.append(*it);
+    for (const auto &id : menuIds) {
+        if (cg.readEntry(id, true)) {
+            result.append(id);
         }
     }
     return result;
 }
 
-static void initUrlActionRestrictions()
+// Exported for unittests (e.g. in KIO, we're missing tests for this in kconfig)
+KCONFIGCORE_EXPORT void loadUrlActionRestrictions(const KConfigGroup &cg)
 {
-    MY_D
-    const QString Any;
+    MY_D const QString Any;
 
     d->urlActionRestrictions.clear();
-    d->urlActionRestrictions.append(
-        URLActionRule("open", Any, Any, Any, Any, Any, Any, true));
-    d->urlActionRestrictions.append(
-        URLActionRule("list", Any, Any, Any, Any, Any, Any, true));
-// TEST:
-//  d->urlActionRestrictions.append(
-//  URLActionRule("list", Any, Any, Any, Any, Any, Any, false));
-//  d->urlActionRestrictions.append(
-//  URLActionRule("list", Any, Any, Any, "file", Any, QDir::homePath(), true));
-    d->urlActionRestrictions.append(
-        URLActionRule("link", Any, Any, Any, QStringLiteral(":internet"), Any, Any, true));
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", Any, Any, Any, QStringLiteral(":internet"), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("open", Any, Any, Any, Any, Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("list", Any, Any, Any, Any, Any, Any, true));
+    // TEST:
+    //  d->urlActionRestrictions.append(
+    //  URLActionRule("list", Any, Any, Any, Any, Any, Any, false));
+    //  d->urlActionRestrictions.append(
+    //  URLActionRule("list", Any, Any, Any, "file", Any, QDir::homePath(), true));
+    d->urlActionRestrictions.append(URLActionRule("link", Any, Any, Any, QStringLiteral(":internet"), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", Any, Any, Any, QStringLiteral(":internet"), Any, Any, true));
 
     // We allow redirections to file: but not from internet protocols, redirecting to file:
     // is very popular among io-slaves and we don't want to break them
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", Any, Any, Any, QStringLiteral("file"), Any, Any, true));
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", QStringLiteral(":internet"), Any, Any, QStringLiteral("file"), Any, Any, false));
+    d->urlActionRestrictions.append(URLActionRule("redirect", Any, Any, Any, QStringLiteral("file"), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", QStringLiteral(":internet"), Any, Any, QStringLiteral("file"), Any, Any, false));
 
     // local protocols may redirect everywhere
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", QStringLiteral(":local"), Any, Any, Any, Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", QStringLiteral(":local"), Any, Any, Any, Any, Any, true));
 
     // Anyone may redirect to about:
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", Any, Any, Any, QStringLiteral("about"), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", Any, Any, Any, QStringLiteral("about"), Any, Any, true));
 
     // Anyone may redirect to mailto:
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", Any, Any, Any, QStringLiteral("mailto"), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", Any, Any, Any, QStringLiteral("mailto"), Any, Any, true));
 
     // Anyone may redirect to itself, cq. within it's own group
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", Any, Any, Any, QStringLiteral("="), Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", Any, Any, Any, QStringLiteral("="), Any, Any, true));
 
-    d->urlActionRestrictions.append(
-        URLActionRule("redirect", QStringLiteral("about"), Any, Any, Any, Any, Any, true));
+    d->urlActionRestrictions.append(URLActionRule("redirect", QStringLiteral("about"), Any, Any, Any, Any, Any, true));
 
-    KConfigGroup cg(KSharedConfig::openConfig(), "KDE URL Restrictions");
     int count = cg.readEntry("rule_count", 0);
     QString keyFormat = QStringLiteral("rule_%1");
     for (int i = 1; i <= count; i++) {
@@ -313,13 +327,13 @@ static void initUrlActionRestrictions()
             continue;
         }
         const QByteArray action = rule[0].toLatin1();
-        QString refProt = rule[1];
-        QString refHost = rule[2];
+        const QString refProt = rule[1];
+        const QString refHost = rule[2];
         QString refPath = rule[3];
-        QString urlProt = rule[4];
-        QString urlHost = rule[5];
+        const QString urlProt = rule[4];
+        const QString urlHost = rule[5];
         QString urlPath = rule[6];
-        bool bEnabled   = (rule[7].toLower() == QLatin1String("true"));
+        const bool bEnabled = (rule[7].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0);
 
         if (refPath.startsWith(QLatin1String("$HOME"))) {
             refPath.replace(0, 5, QDir::homePath());
@@ -339,8 +353,7 @@ static void initUrlActionRestrictions()
             urlPath.replace(0, 4, QDir::tempPath());
         }
 
-        d->urlActionRestrictions.append(
-            URLActionRule(action, refProt, refHost, refPath, urlProt, urlHost, urlPath, bEnabled));
+        d->urlActionRestrictions.append(URLActionRule(action, refProt, refHost, refPath, urlProt, urlHost, urlPath, bEnabled));
     }
 }
 
@@ -352,25 +365,23 @@ namespace KAuthorized
  */
 KCONFIGCORE_EXPORT void allowUrlActionInternal(const QString &action, const QUrl &_baseURL, const QUrl &_destURL)
 {
-    MY_D
-    QMutexLocker locker((&d->mutex));
+    MY_D QMutexLocker locker((&d->mutex));
 
     const QString basePath = _baseURL.adjusted(QUrl::StripTrailingSlash).path();
     const QString destPath = _destURL.adjusted(QUrl::StripTrailingSlash).path();
 
-    d->urlActionRestrictions.append(URLActionRule
-                                    (action.toLatin1(), _baseURL.scheme(), _baseURL.host(), basePath,
-                                     _destURL.scheme(), _destURL.host(), destPath, true));
+    d->urlActionRestrictions.append(
+        URLActionRule(action.toLatin1(), _baseURL.scheme(), _baseURL.host(), basePath, _destURL.scheme(), _destURL.host(), destPath, true));
 }
 
 /**
  * Helper for KAuthorized::authorizeUrlAction in KIO
  * @private
  */
-KCONFIGCORE_EXPORT bool authorizeUrlActionInternal(const QString &action, const QUrl &_baseURL, const QUrl &_destURL, const QString &baseClass, const QString &destClass)
+KCONFIGCORE_EXPORT bool
+authorizeUrlActionInternal(const QString &action, const QUrl &_baseURL, const QUrl &_destURL, const QString &baseClass, const QString &destClass)
 {
-    MY_D
-    QMutexLocker locker(&(d->mutex));
+    MY_D QMutexLocker locker(&(d->mutex));
     if (d->blockEverything) {
         return false;
     }
@@ -381,7 +392,8 @@ KCONFIGCORE_EXPORT bool authorizeUrlActionInternal(const QString &action, const 
 
     bool result = false;
     if (d->urlActionRestrictions.isEmpty()) {
-        initUrlActionRestrictions();
+        KConfigGroup cg(KSharedConfig::openConfig(), "KDE URL Restrictions");
+        loadUrlActionRestrictions(cg);
     }
 
     QUrl baseURL(_baseURL);
@@ -390,11 +402,10 @@ KCONFIGCORE_EXPORT bool authorizeUrlActionInternal(const QString &action, const 
     QUrl destURL(_destURL);
     destURL.setPath(QDir::cleanPath(destURL.path()));
 
-    for (const URLActionRule &rule : qAsConst(d->urlActionRestrictions)) {
+    for (const URLActionRule &rule : std::as_const(d->urlActionRestrictions)) {
         if ((result != rule.permission) && // No need to check if it doesn't make a difference
-            (action == QLatin1String(rule.action.constData())) &&
-            rule.baseMatch(baseURL, baseClass) &&
-            rule.destMatch(destURL, destClass, baseURL, baseClass)) {
+            (action == QLatin1String(rule.action.constData())) && rule.baseMatch(baseURL, baseClass)
+            && rule.destMatch(destURL, destClass, baseURL, baseClass)) {
             result = rule.permission;
         }
     }

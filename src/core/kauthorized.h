@@ -1,21 +1,8 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 1997 Matthias Kalle Dalheimer (kalle@kde.org)
-    Copyright (c) 1998, 1999 Waldo Bastian <bastian@kde.org>
+/*  This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    SPDX-FileCopyrightText: 1998, 1999 Waldo Bastian <bastian@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KAUTHORIZED_H
@@ -23,20 +10,57 @@
 
 #include <kconfigcore_export.h>
 
+#include <QMetaEnum>
+#include <QObject>
+#include <QStringList>
+#include <QVariant>
+
 class QUrl;
 class QString;
-class QStringList;
 
 /**
-* The functions in this namespace provide the core of the Kiosk action
-* restriction system; the KIO and KXMLGui frameworks build on this.
-*
-* The relevant settings are read from the application's KSharedConfig
-* instance, so actions can be disabled on a per-application or global
-* basis (by using the kdeglobals file).
-*/
+ * The functions in this namespace provide the core of the Kiosk action
+ * restriction system; the KIO and KXMLGui frameworks build on this.
+ *
+ * The relevant settings are read from the application's KSharedConfig
+ * instance, so actions can be disabled on a per-application or global
+ * basis (by using the kdeglobals file).
+ */
 namespace KAuthorized
 {
+Q_NAMESPACE_EXPORT(KCONFIGCORE_EXPORT);
+
+/**
+ * The enum values lower cased represent the action that is authorized
+ * For example the SHELL_ACCESS value is converted to the "shell_access" string.
+ *
+ * @since 5.88
+ */
+enum GenericRestriction {
+    SHELL_ACCESS = 1, // if the user is authorized to open a shell or execute shell commands
+    GHNS, /// if the collaborative data sharing framework KNewStuff is authorized
+    // GUI behavior
+    LINEEDIT_REVEAL_PASSWORD, /// if typed characters in password fields can be made visible
+    LINEEDIT_TEXT_COMPLETION, /// if line edits should be allowed to display completions
+    MOVABLE_TOOLBARS, /// if toolbars of of apps should be movable
+    RUN_DESKTOP_FILES, /// if .desktop files should be run as executables when clicked
+};
+Q_ENUM_NS(GenericRestriction)
+
+/**
+ *
+ * @since 5.88
+ */
+enum GenericAction {
+    OPEN_WITH = 1, /// if the open-with menu should be shown for files etc.
+    EDITFILETYPE, /// if mime-type accociations are allowed to be configured
+
+    OPTIONS_SHOW_TOOLBAR, /// if the toolbar should be displayed in apps
+    SWITCH_APPLICATION_LANGUAGE, /// if an action to switch the app language should be shown
+    BOOKMARKS, /// saving bookmarks is allowed
+};
+Q_ENUM_NS(GenericAction)
+
 /**
  * Returns whether the user is permitted to perform a certain action.
  *
@@ -70,6 +94,16 @@ namespace KAuthorized
 KCONFIGCORE_EXPORT bool authorize(const QString &action);
 
 /**
+ * Returns whether the user is permitted to perform a common action.
+ * The enum values lower cased represent the action that is
+ * passed in to @p authorize(QString)
+ *
+ * @overload
+ * @since 5.88
+ */
+KCONFIGCORE_EXPORT bool authorize(GenericRestriction action);
+
+/**
  * Returns whether the user is permitted to perform a certain action.
  *
  * This behaves like authorize(), except that "action/" is prepended to
@@ -95,6 +129,14 @@ KCONFIGCORE_EXPORT bool authorize(const QString &action);
  * @see authorize()
  */
 KCONFIGCORE_EXPORT bool authorizeAction(const QString &action);
+
+/**
+ * Overload to authorize common actions.
+ *
+ * @overload
+ * @since 5.88
+ */
+KCONFIGCORE_EXPORT bool authorizeAction(GenericAction action);
 
 #if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 24)
 /**
@@ -122,8 +164,9 @@ KCONFIGCORE_EXPORT bool authorizeAction(const QString &action);
  * @see authorize()
  * @deprecated since 5.24, use authorizeAction() instead.
  */
+KCONFIGCORE_EXPORT
 KCONFIGCORE_DEPRECATED_VERSION(5, 24, "Use KAuthorized::authorizeAction(const QString&)")
-KCONFIGCORE_EXPORT bool authorizeKAction(const QString &action);
+bool authorizeKAction(const QString &action);
 #endif
 
 /**

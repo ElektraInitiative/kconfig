@@ -1,40 +1,29 @@
 /*
-  This file is part of the KDE libraries
-  Copyright (c) 1999 Pietro Iglio <iglio@kde.org>
-  Copyright (c) 1999 Preston Brown <pbrown@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1999 Pietro Iglio <iglio@kde.org>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
-
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kdesktopfile.h"
+
+#include "kauthorized.h"
+#include "kconfig_core_log_settings.h"
+#include "kconfig_p.h"
+#include "kconfiggroup.h"
+#include "kconfigini_p.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QUrl>
 
 #ifndef Q_OS_WIN
 #include <unistd.h>
 #endif
 
-#include <QDir>
-#include <QFileInfo>
-#include <QUrl>
-#include <qstandardpaths.h>
-
-#include "kauthorized.h"
-#include "kconfig_p.h"
-#include "kconfiggroup.h"
-#include "kconfigini_p.h"
-#include "kconfig_core_log_settings.h"
+#include <algorithm>
 
 class KDesktopFilePrivate : public KConfigPrivate
 {
@@ -79,28 +68,31 @@ KConfigGroup KDesktopFile::desktopGroup() const
 
 QString KDesktopFile::locateLocal(const QString &path)
 {
-    QString relativePath;
-    QChar plus(QLatin1Char('/'));
+    static const QLatin1Char slash('/');
+
     // Relative to config? (e.g. for autostart)
-    const QStringList lstGenericConfigLocation = QStandardPaths::standardLocations(QStandardPaths::GenericConfigLocation);
-    for (const QString &dir : lstGenericConfigLocation) {
-        if (path.startsWith(dir + plus)) {
-            relativePath = path.mid(dir.length() + 1);
-            return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1Char('/') + relativePath;
-        }
+    const QStringList genericConfig = QStandardPaths::standardLocations(QStandardPaths::GenericConfigLocation);
+    // Iterate from the last item since some items may be subfolders of others.
+    auto it = std::find_if(genericConfig.crbegin(), genericConfig.crend(), [&path](const QString &dir) {
+        return path.startsWith(dir + slash);
+    });
+    if (it != genericConfig.crend()) {
+        return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + slash + QStringView(path).mid(it->size() + 1);
     }
+
+    QString relativePath;
     // Relative to xdg data dir? (much more common)
     const QStringList lstGenericDataLocation = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
     for (const QString &dir : lstGenericDataLocation) {
-        if (path.startsWith(dir + plus)) {
+        if (path.startsWith(dir + slash)) {
             relativePath = path.mid(dir.length() + 1);
         }
     }
     if (relativePath.isEmpty()) {
         // What now? The desktop file doesn't come from XDG_DATA_DIRS. Use filename only and hope for the best.
-        relativePath = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
+        relativePath = path.mid(path.lastIndexOf(slash) + 1);
     }
-    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QLatin1Char('/') + relativePath;
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + slash + relativePath;
 }
 
 bool KDesktopFile::isDesktopFile(const QString &path)
@@ -111,16 +103,16 @@ bool KDesktopFile::isDesktopFile(const QString &path)
 bool KDesktopFile::isAuthorizedDesktopFile(const QString &path)
 {
     if (path.isEmpty()) {
-        return false;    // Empty paths are not ok.
+        return false; // Empty paths are not ok.
     }
 
     if (QDir::isRelativePath(path)) {
-        return true;    // Relative paths are ok.
+        return true; // Relative paths are ok.
     }
 
     const QString realPath = QFileInfo(path).canonicalFilePath();
     if (realPath.isEmpty()) {
-        return false;    // File doesn't exist.
+        return false; // File doesn't exist.
     }
 
 #ifndef Q_OS_WIN
@@ -131,30 +123,40 @@ bool KDesktopFile::isAuthorizedDesktopFile(const QString &path)
 
     // Check if the .desktop file is installed as part of KDE or XDG.
     const QStringList appsDirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
-    for (const QString &prefix : appsDirs) {
-        if (QDir(prefix).exists() && realPath.startsWith(QFileInfo(prefix).canonicalFilePath(), sensitivity)) {
-            return true;
-        }
+    auto it = std::find_if(appsDirs.cbegin(), appsDirs.cend(), [&realPath, sensitivity](const QString &prefix) {
+        QFileInfo info(prefix);
+        return info.exists() && info.isDir() && realPath.startsWith(info.canonicalFilePath(), sensitivity);
+    });
+    if (it != appsDirs.cend()) {
+        return true;
     }
+
     const QString servicesDir = QStringLiteral("kservices5/"); // KGlobal::dirs()->xdgDataRelativePath("services")
-    const QStringList lstGenericDataLocation = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
-    for (const QString &xdgDataPrefix : lstGenericDataLocation) {
-        if (QDir(xdgDataPrefix).exists()) {
-            const QString prefix = QFileInfo(xdgDataPrefix).canonicalFilePath();
-            if (realPath.startsWith(prefix + QLatin1Char('/') + servicesDir, sensitivity)) {
-                return true;
-            }
+    const QStringList genericData = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+    auto genericIt = std::find_if(genericData.cbegin(), genericData.cend(), [&realPath, &servicesDir, sensitivity](const QString &xdgDataPrefix) {
+        QFileInfo info(xdgDataPrefix);
+        if (info.exists() && info.isDir()) {
+            const QString prefix = info.canonicalFilePath();
+            return realPath.startsWith(prefix + QLatin1Char('/') + servicesDir, sensitivity);
         }
+        return false;
+    });
+    if (genericIt != genericData.cend()) {
+        return true;
     }
+
     const QString autostartDir = QStringLiteral("autostart/");
     const QStringList lstConfigPath = QStandardPaths::standardLocations(QStandardPaths::GenericConfigLocation);
-    for (const QString &xdgDataPrefix : lstConfigPath) {
-        if (QDir(xdgDataPrefix).exists()) {
-            const QString prefix = QFileInfo(xdgDataPrefix).canonicalFilePath();
-            if (realPath.startsWith(prefix + QLatin1Char('/') + autostartDir, sensitivity)) {
-                return true;
-            }
+    auto configIt = std::find_if(lstConfigPath.cbegin(), lstConfigPath.cend(), [&realPath, &autostartDir, sensitivity](const QString &xdgDataPrefix) {
+        QFileInfo info(xdgDataPrefix);
+        if (info.exists() && info.isDir()) {
+            const QString prefix = info.canonicalFilePath();
+            return realPath.startsWith(prefix + QLatin1Char('/') + autostartDir, sensitivity);
         }
+        return false;
+    });
+    if (configIt != lstConfigPath.cend()) {
+        return true;
     }
 
     // Forbid desktop files outside of standard locations if kiosk is set so
@@ -170,7 +172,7 @@ bool KDesktopFile::isAuthorizedDesktopFile(const QString &path)
         return true;
     }
 
-    qCWarning(KCONFIG_CORE_LOG) << "Access to '" << path << "' denied, not owned by root, executable flag not set.";
+    qCInfo(KCONFIG_CORE_LOG) << "Access to '" << path << "' denied, not owned by root and executable flag not set.";
     return false;
 }
 
@@ -214,11 +216,13 @@ QString KDesktopFile::readPath() const
     return d->desktopGroup.readEntry("Path", QString());
 }
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 82)
 QString KDesktopFile::readDevice() const
 {
     Q_D(const KDesktopFile);
     return d->desktopGroup.readEntry("Dev", QString());
 }
+#endif
 
 QString KDesktopFile::readUrl() const
 {
@@ -291,19 +295,15 @@ bool KDesktopFile::tryExec() const
         }
     }
     const QStringList list = d->desktopGroup.readEntry("X-KDE-AuthorizeAction", QStringList());
-
-    if (!list.isEmpty()) {
-        for (QStringList::ConstIterator it = list.begin();
-             it != list.end();
-             ++it) {
-            if (!KAuthorized::authorize((*it).trimmed())) {
-                return false;
-            }
-        }
+    const auto isNotAuthorized = std::any_of(list.cbegin(), list.cend(), [](const QString &action) {
+        return !KAuthorized::authorize(action.trimmed());
+    });
+    if (isNotAuthorized) {
+        return false;
     }
 
     // See also KService::username()
-    bool su = d->desktopGroup.readEntry("X-KDE-SubstituteUID", false);
+    const bool su = d->desktopGroup.readEntry("X-KDE-SubstituteUID", false);
     if (su) {
         QString user = d->desktopGroup.readEntry("X-KDE-Username", QString());
         if (user.isEmpty()) {
@@ -320,28 +320,13 @@ bool KDesktopFile::tryExec() const
     return true;
 }
 
-/**
- * @return the filename as passed to the constructor.
- */
-//QString KDesktopFile::fileName() const { return backEnd->fileName(); }
-
-/**
- * @return the resource type as passed to the constructor.
- */
-//QString
-//KDesktopFile::resource() const { return backEnd->resource(); }
-
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 42)
-QStringList
-KDesktopFile::sortOrder() const
+QStringList KDesktopFile::sortOrder() const
 {
     Q_D(const KDesktopFile);
     return d->desktopGroup.readXdgListEntry("SortOrder");
 }
 #endif
-
-//void KDesktopFile::virtual_hook( int id, void* data )
-//{ KConfig::virtual_hook( id, data ); }
 
 QString KDesktopFile::readDocPath() const
 {
@@ -353,15 +338,17 @@ KDesktopFile *KDesktopFile::copyTo(const QString &file) const
 {
     KDesktopFile *config = new KDesktopFile(QString());
     this->KConfig::copyTo(file, config);
-//  config->setDesktopGroup();
+    //  config->setDesktopGroup();
     return config;
 }
 
+#if KCONFIGCORE_BUILD_DEPRECATED_SINCE(5, 89)
 QStandardPaths::StandardLocation KDesktopFile::resource() const
 {
     Q_D(const KDesktopFile);
     return d->resourceType;
 }
+#endif
 
 QString KDesktopFile::fileName() const
 {

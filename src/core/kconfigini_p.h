@@ -1,30 +1,17 @@
 /*
    This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Portions copyright (c) 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+   SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+   SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+   SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+   SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIGINI_P_H
 #define KCONFIGINI_P_H
 
-#include <kconfigcore_export.h>
 #include <kconfigbackend_p.h>
+#include <kconfigcore_export.h>
 
 class QLockFile;
 class QIODevice;
@@ -41,15 +28,9 @@ public:
     KConfigIniBackend();
     ~KConfigIniBackend() override;
 
-    ParseInfo parseConfig(const QByteArray &locale,
-                          KEntryMap &entryMap,
-                          ParseOptions options) override;
-    ParseInfo parseConfig(const QByteArray &locale,
-                          KEntryMap &entryMap,
-                          ParseOptions options,
-                          bool merging);
-    bool writeConfig(const QByteArray &locale, KEntryMap &entryMap,
-                     WriteOptions options) override;
+    ParseInfo parseConfig(const QByteArray &locale, KEntryMap &entryMap, ParseOptions options) override;
+    ParseInfo parseConfig(const QByteArray &locale, KEntryMap &entryMap, ParseOptions options, bool merging);
+    bool writeConfig(const QByteArray &locale, KEntryMap &entryMap, WriteOptions options) override;
 
     bool isWritable() const override;
     QString nonWritableErrorMessage() const override;
@@ -61,11 +42,10 @@ public:
     bool isLocked() const override;
 
 protected:
-
     enum StringType {
         GroupString = 0,
         KeyString = 1,
-        ValueString = 2
+        ValueString = 2,
     };
     // Warning: this modifies data in-place. Other BufferFragment objects referencing the same buffer
     // fragment will get their data modified too.
@@ -75,8 +55,7 @@ protected:
     static QString warningProlog(const QFile &file, int line);
 
     void writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map);
-    void writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map,
-                      bool defaultGroup, bool &firstEntry);
+    void writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map, bool defaultGroup, bool &firstEntry);
 
 public:
     QString uniqueGlobalIdentifier() override;

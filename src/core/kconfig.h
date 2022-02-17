@@ -1,24 +1,11 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 2001 Waldo Bastian <bastian@kde.org>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (c) 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 2001 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIG_H
@@ -28,11 +15,11 @@
 
 #include <kconfigcore_export.h>
 
-#include <QString>
-#include <QVariant>
 #include <QByteArray>
 #include <QList>
-#include <qstandardpaths.h>
+#include <QStandardPaths>
+#include <QString>
+#include <QVariant>
 
 class KConfigGroup;
 class KEntryMap;
@@ -93,16 +80,20 @@ public:
      * Note that all values other than IncludeGlobals and CascadeConfig are
      * convenience definitions for the basic mode.
      * Do @em not combine them with anything.
+     * @see OpenFlags
      */
     enum OpenFlag {
-        IncludeGlobals  = 0x01, ///< Blend kdeglobals into the config object.
-        CascadeConfig   = 0x02, ///< Cascade to system-wide config files.
+        IncludeGlobals = 0x01, ///< Blend kdeglobals into the config object.
+        CascadeConfig = 0x02, ///< Cascade to system-wide config files.
 
-        SimpleConfig    = 0x00, ///< Just a single config file.
-        NoCascade       = IncludeGlobals, ///< Include user's globals, but omit system settings.
-        NoGlobals       = CascadeConfig, ///< Cascade to system settings, but omit user's globals.
-        FullConfig      = IncludeGlobals | CascadeConfig ///< Fully-fledged config, including globals and cascading to system settings
+        SimpleConfig = 0x00, ///< Just a single config file.
+        NoCascade = IncludeGlobals, ///< Include user's globals, but omit system settings.
+        NoGlobals = CascadeConfig, ///< Cascade to system settings, but omit user's globals.
+        FullConfig = IncludeGlobals | CascadeConfig, ///< Fully-fledged config, including globals and cascading to system settings
     };
+    /**
+     * Stores a combination of #OpenFlag values.
+     */
     Q_DECLARE_FLAGS(OpenFlags, OpenFlag)
 
     /**
@@ -133,7 +124,8 @@ public:
      *
      * @sa KSharedConfig::openConfig(const QString&, OpenFlags, QStandardPaths::StandardLocation)
      */
-    explicit KConfig(const QString &file = QString(), OpenFlags mode = FullConfig,
+    explicit KConfig(const QString &file = QString(),
+                     OpenFlags mode = FullConfig,
                      QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
 
 #ifdef FEAT_ELEKTRA
@@ -155,7 +147,7 @@ public:
      */
     KConfig(const QString &file, const QString &backend, QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
 
-    virtual ~KConfig();
+    ~KConfig() override;
 
     /**
      * Returns the standard location enum passed to the constructor.
@@ -249,6 +241,8 @@ public:
 
     /**
      * Updates the state of this object to match the persistent storage.
+     * Note that if this object has pending changes, this method will
+     * call sync() first so as not to lose those changes.
      */
     void reparseConfiguration();
 

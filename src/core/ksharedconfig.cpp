@@ -1,28 +1,15 @@
 /*
-  This file is part of the KDE libraries
-  Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-  Copyright (C) 1997-1999 Matthias Kalle Dalheimer (kalle@kde.org)
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
-
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "ksharedconfig.h"
+#include "kconfig_p.h"
 #include "kconfigbackend_p.h"
 #include "kconfiggroup.h"
-#include "kconfig_p.h"
 #include <QCoreApplication>
 #include <QThread>
 #include <QThreadStorage>
@@ -53,8 +40,8 @@ public:
 };
 
 static QThreadStorage<GlobalSharedConfigList *> s_storage;
-template <typename T>
-T * perThreadGlobalStatic()
+template<typename T>
+T *perThreadGlobalStatic()
 {
     if (!s_storage.hasLocalData()) {
         s_storage.setLocalData(new T);
@@ -77,9 +64,7 @@ void _k_globalMainConfigSync()
 }
 
 #ifndef FEAT_ELEKTRA
-KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
-        OpenFlags flags,
-        QStandardPaths::StandardLocation resType)
+KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName, OpenFlags flags, QStandardPaths::StandardLocation resType)
 {
     QString fileName(_fileName);
     GlobalSharedConfigList *list = globalSharedConfigList();
@@ -94,12 +79,10 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
         list->mainConfig = nullptr;
     }
 
-    for (auto cfg :  qAsConst(*list)) {
-        if (cfg->name() == fileName &&
-            cfg->d_ptr->openFlags == flags &&
-            cfg->locationType() == resType
-//                cfg->backend()->type() == backend
-           ) {
+    for (auto *cfg : std::as_const(*list)) {
+        if (cfg->name() == fileName && cfg->d_ptr->openFlags == flags && cfg->locationType() == resType
+            //                cfg->backend()->type() == backend
+        ) {
             return KSharedConfigPtr(cfg);
         }
     }
@@ -185,6 +168,8 @@ KSharedConfigPtr KSharedConfig::openConfig(const QString &_fileName,
 
 KSharedConfig::Ptr KSharedConfig::openStateConfig(const QString &_fileName)
 {
+    // KF6 TODO: port this to XDG_STATE_HOME (default ~/.local/state)
+    // See https://gitlab.freedesktop.org/xdg/xdg-specs/-/blob/master/basedir/basedir-spec.xml
     QString fileName(_fileName);
 
     if (fileName.isEmpty()) {
@@ -194,9 +179,7 @@ KSharedConfig::Ptr KSharedConfig::openStateConfig(const QString &_fileName)
     return openConfig(fileName, SimpleConfig, QStandardPaths::AppDataLocation);
 }
 
-KSharedConfig::KSharedConfig(const QString &fileName,
-                             OpenFlags flags,
-                             QStandardPaths::StandardLocation resType)
+KSharedConfig::KSharedConfig(const QString &fileName, OpenFlags flags, QStandardPaths::StandardLocation resType)
     : KConfig(fileName, flags, resType)
 {
     globalSharedConfigList()->append(this);

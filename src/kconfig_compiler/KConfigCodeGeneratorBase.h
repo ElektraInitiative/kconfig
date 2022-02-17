@@ -1,55 +1,44 @@
 /*
     This file is part of KDE.
 
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
-    Copyright (c) 2003 Cornelius Schumacher <schumacher@kde.org>
-    Copyright (c) 2003 Waldo Bastian <bastian@kde.org>
-    Copyright (c) 2003 Zack Rusin <zack@kde.org>
-    Copyright (c) 2006 Michaël Larouche <michael.larouche@kdemail.net>
-    Copyright (c) 2008 Allen Winter <winter@kde.org>
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
+    SPDX-FileCopyrightText: 2003 Cornelius Schumacher <schumacher@kde.org>
+    SPDX-FileCopyrightText: 2003 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 2003 Zack Rusin <zack@kde.org>
+    SPDX-FileCopyrightText: 2006 Michaël Larouche <michael.larouche@kdemail.net>
+    SPDX-FileCopyrightText: 2008 Allen Winter <winter@kde.org>
+    SPDX-FileCopyrightText: 2020 Tomaz Cananbrava <tcanabrava@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIGCODEGENERATORBASE_H
 #define KCONFIGCODEGENERATORBASE_H
 
+#include <QFile>
 #include <QString>
 #include <QTextStream>
-#include <QFile>
 #include <QVector>
 
-#include "KConfigParameters.h"
 #include "KConfigCommonStructs.h"
+#include "KConfigParameters.h"
 
 class CfgEntry;
 struct ParseResult;
 
 /* This class manages the base of writing a C - Based code */
-class KConfigCodeGeneratorBase {
+class KConfigCodeGeneratorBase
+{
 public:
-    enum ScopeFinalizer {None, Semicolon};
+    enum ScopeFinalizer {
+        None,
+        Semicolon,
+    };
 
-    KConfigCodeGeneratorBase(
-        const QString &inputFileName,  // The kcfg file
-        const QString &baseDir,        // where we should store the generated file
-        const QString &fileName,       // the name of the generated file
-        const KConfigParameters &parameters, // parameters passed to the generator
-        ParseResult &parseResult // The pre processed configuration entries
+    KConfigCodeGeneratorBase(const QString &inputFileName, // The kcfg file
+                             const QString &baseDir, // where we should store the generated file
+                             const QString &fileName, // the name of the generated file
+                             const KConfigParameters &parameters, // parameters passed to the generator
+                             ParseResult &parseResult // The pre processed configuration entries
     );
     virtual ~KConfigCodeGeneratorBase();
 
@@ -67,7 +56,7 @@ public:
 
     // start a block scope `{` and increase indentation level.
     void endScope(ScopeFinalizer finalizer = None);
-    
+
     // end a block scope `}` and decrease indentation level.
     void startScope();
 
@@ -101,32 +90,53 @@ protected:
     /* reduce the number of spaces for the indentation level */
     void unindent();
 
-    QString inputFile() const { return m_inputFile; }
-    QString fileName() const { return m_fileName; }
-    QString baseDir() const { return m_baseDir; }
-    QString This() const { return m_this; }
-    QString Const() const { return m_const; }
-    KConfigParameters cfg() const { return m_cfg; }
+    QString inputFile() const
+    {
+        return m_inputFile;
+    }
+    QString fileName() const
+    {
+        return m_fileName;
+    }
+    QString baseDir() const
+    {
+        return m_baseDir;
+    }
+    QString This() const
+    {
+        return m_this;
+    }
+    QString Const() const
+    {
+        return m_const;
+    }
+    KConfigParameters cfg() const
+    {
+        return m_cfg;
+    }
 
     // Can't be const.
-    QTextStream& stream() { return m_stream; }
+    QTextStream &stream()
+    {
+        return m_stream;
+    }
 
-    // HACK: This needs to be accesible because the HeaderGenerator actually modifies
+    // HACK: This needs to be accessible because the HeaderGenerator actually modifies
     // it while running. Considering that this is a the result of the xml Parse, and not
     // the result of generating code, I consider this to be quite wrong - but moving the
     // changes away from the header generator only created more problems and I have to
     // investigate more.
-    ParseResult &parseResult;       // the result of the parsed kcfg file
+    ParseResult &parseResult; // the result of the parsed kcfg file
 
 private:
     QString m_inputFile; // the base file name, input file is based on this.
 
-    QString m_baseDir;   // Where we are going to save the file
-    QString m_fileName;  // The file name
+    QString m_baseDir; // Where we are going to save the file
+    QString m_fileName; // The file name
 
     KConfigParameters m_cfg; // The parameters passed via the kcfgc file
-    QTextStream m_stream;             // the stream that operates in the file to write data.
-    QFile m_file;                     // The file handler.
+    QTextStream m_stream; // the stream that operates in the file to write data.
+    QFile m_file; // The file handler.
 
     // Special access to `this->` and `const` thru the code.
     QString m_this;

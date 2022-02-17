@@ -1,20 +1,8 @@
-/* This file is part of the KDE libraries
-   Copyright (c) 1999 Pietro Iglio <iglio@kde.org>
+/*
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1999 Pietro Iglio <iglio@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 #ifndef KDESKTOPFILE_H
 #define KDESKTOPFILE_H
@@ -68,7 +56,7 @@ public:
      *
      * Writes back any dirty configuration entries.
      */
-    virtual ~KDesktopFile();
+    ~KDesktopFile() override;
 
     /**
      * Checks whether this is really a desktop file.
@@ -141,11 +129,16 @@ public:
      */
     QString readPath() const;
 
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 82)
     /**
      * Returns the value of the "Dev=" entry.
      * @return the device or QString() if not specified
+     * @deprecated since 5.82, for lack of usage, the FSDevice .desktop template
+     * hadn't been installed for a long time.
      */
+    KCONFIGCORE_DEPRECATED_VERSION(5, 82, "For lack of usage.")
     QString readDevice() const;
+#endif
 
     /**
      * Returns the value of the "URL=" entry.
@@ -245,17 +238,20 @@ public:
      */
     KDesktopFile *copyTo(const QString &file) const;
 
+    /**
+     * Returns the name of the .desktop file that was used to construct this KDesktopFile.
+     */
     QString fileName() const;
 
+#if KCONFIGCORE_ENABLE_DEPRECATED_SINCE(5, 89)
+    /**
+     * @deprecated Since 5.89, use locationType() instead.
+     */
+    KCONFIGCORE_DEPRECATED_VERSION(5, 89, "Use locationType() instead.")
     QStandardPaths::StandardLocation resource() const;
+#endif
 
-protected:
-    /** Virtual hook, used to add new "virtual" functions while maintaining
-        binary compatibility. Unused in this class.
-    */
-//  virtual void virtual_hook( int id, void* data );
 private:
-
     Q_DISABLE_COPY(KDesktopFile)
 
     Q_DECLARE_PRIVATE(KDesktopFile)

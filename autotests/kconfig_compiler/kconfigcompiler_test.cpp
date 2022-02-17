@@ -1,89 +1,109 @@
 /*
     Tests for KConfig Compiler
 
-    Copyright (c) 2005      by Duncan Mac-Vicar       <duncan@kde.org>
-    Copyright (c) 2009      by Pino Toscano           <pino@kde.org>
+    SPDX-FileCopyrightText: 2005 Duncan Mac-Vicar <duncan@kde.org>
+    SPDX-FileCopyrightText: 2009 Pino Toscano <pino@kde.org>
 
-    *************************************************************************
-    *                                                                       *
-    * This library is free software; you can redistribute it and/or         *
-    * modify it under the terms of the GNU Lesser General Public            *
-    * License as published by the Free Software Foundation; either          *
-    * version 2 of the License, or (at your option) any later version.      *
-    *                                                                       *
-    *************************************************************************
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
+#include "kconfigcompiler_test.h"
 #include <QDir>
 #include <QFile>
 #include <QProcess>
 #include <QString>
-#include <QtTest>
+#include <QTest>
 #include <qstandardpaths.h>
-#include "kconfigcompiler_test.h"
 
 // QT5 TODO QTEST_GUILESS_MAIN(KConfigCompiler_Test)
 QTEST_MAIN(KConfigCompiler_Test)
 
 typedef const char *CompilerTestSet[];
 
-static CompilerTestSet testCases = {
-    "test1.cpp", "test1.h",
-    "test2.cpp", "test2.h",
-    "test3.cpp", "test3.h",
-    "test3a.cpp", "test3a.h",
-    "test4.cpp", "test4.h",
-    "test5.cpp", "test5.h",
-    "test6.cpp", "test6.h",
-    "test7.cpp", "test7.h",
-    "test8a.cpp", "test8a.h",
-    "test8b.cpp", "test8b.h",
-    "test8c.cpp", "test8c.h",
-    "test9.h", "test9.cpp",
-    "test10.h", "test10.cpp",
-    "test11.h", "test11.cpp",
-    "test11a.h", "test11a.cpp",
-    "test12.h", "test12.cpp",
-    "test13.h", "test13.cpp",
-    "test_dpointer.cpp", "test_dpointer.h",
-    "test_qdebugcategory.cpp", "test_qdebugcategory.h",
-    "test_signal.cpp", "test_signal.h",
-    "test_notifiers.cpp", "test_notifiers.h",
-    "test_translation_kde.cpp", "test_translation_kde.h",
-    "test_translation_kde_domain.cpp", "test_translation_kde_domain.h",
-    "test_translation_qt.cpp", "test_translation_qt.h",
-    "test_emptyentries.cpp", "test_emptyentries.h",
-    "test_properties_minmax.cpp", "test_properties_minmax.h",
-    "test_param_minmax.cpp", "test_param_minmax.h",
-    nullptr
-};
+static CompilerTestSet testCases = {"test1.cpp",
+                                    "test1.h",
+                                    "test2.cpp",
+                                    "test2.h",
+                                    "test3.cpp",
+                                    "test3.h",
+                                    "test3a.cpp",
+                                    "test3a.h",
+                                    "test4.cpp",
+                                    "test4.h",
+                                    "test5.cpp",
+                                    "test5.h",
+                                    "test6.cpp",
+                                    "test6.h",
+                                    "test7.cpp",
+                                    "test7.h",
+                                    "test8a.cpp",
+                                    "test8a.h",
+                                    "test8b.cpp",
+                                    "test8b.h",
+                                    "test8c.cpp",
+                                    "test8c.h",
+                                    "test9.h",
+                                    "test9.cpp",
+                                    "test10.h",
+                                    "test10.cpp",
+                                    "test11.h",
+                                    "test11.cpp",
+                                    "test11a.h",
+                                    "test11a.cpp",
+                                    "test12.h",
+                                    "test12.cpp",
+                                    "test13.h",
+                                    "test13.cpp",
+                                    "test_dpointer.cpp",
+                                    "test_dpointer.h",
+                                    "test_qdebugcategory.cpp",
+                                    "test_qdebugcategory.h",
+                                    "test_signal.cpp",
+                                    "test_signal.h",
+                                    "test_notifiers.cpp",
+                                    "test_notifiers.h",
+                                    "test_translation_kde.cpp",
+                                    "test_translation_kde.h",
+                                    "test_translation_kde_domain.cpp",
+                                    "test_translation_kde_domain.h",
+                                    "test_translation_qt.cpp",
+                                    "test_translation_qt.h",
+                                    "test_emptyentries.cpp",
+                                    "test_emptyentries.h",
+                                    "test_properties_minmax.cpp",
+                                    "test_properties_minmax.h",
+                                    "test_param_minmax.cpp",
+                                    "test_param_minmax.h",
+                                    "test_subgroups.cpp",
+                                    "test_subgroups.h",
+                                    nullptr};
 
-static CompilerTestSet testCasesToRun = {
-    "test1",
-    "test2",
-    "test3",
-    "test3a",
-    "test4",
-    "test5",
-    "test6",
-    "test7",
-    "test8",
-    "test9",
-    "test10",
-    "test11",
-    "test12",
-    "test13",
-    "test_dpointer",
-    "test_qdebugcategory",
-    "test_signal",
-    "test_translation_kde",
-    "test_translation_kde_domain",
-    "test_translation_qt",
-    "test_emptyentries",
-    "test_properties_minmax",
-    "test_param_minmax",
-    nullptr
-};
+static CompilerTestSet testCasesToRun = {"test1",
+                                         "test2",
+                                         "test3",
+                                         "test3a",
+                                         "test4",
+                                         "test5",
+                                         "test6",
+                                         "test7",
+                                         "test8",
+                                         "test9",
+                                         "test10",
+                                         "test11",
+                                         "test12",
+                                         "test13",
+                                         "test_enums_and_properties",
+                                         "test_dpointer",
+                                         "test_qdebugcategory",
+                                         "test_signal",
+                                         "test_translation_kde",
+                                         "test_translation_kde_domain",
+                                         "test_translation_qt",
+                                         "test_emptyentries",
+                                         "test_properties_minmax",
+                                         "test_param_minmax",
+                                         "test_subgroups",
+                                         nullptr};
 
 #if 0
 static CompilerTestSet willFailCases = {
@@ -98,7 +118,7 @@ void KConfigCompiler_Test::initTestCase()
 #ifdef FEAT_ELEKTRA
     QSKIP("test cannot be run currently with Elektra");
 #endif
-    m_diffExe = QStandardPaths::findExecutable( QStringLiteral("diff") );
+    m_diffExe = QStandardPaths::findExecutable(QStringLiteral("diff"));
     if (m_diffExe.isEmpty()) {
         qDebug() << "diff command not found, detailed info on comparison failure will not be available.";
     }
@@ -128,10 +148,10 @@ void KConfigCompiler_Test::testBaselineComparison()
         qWarning() << "Failed to open" << fileRef.fileName() << "(" << testName << ".ref )";
         QFAIL("Can't open file for comparison");
     }
-    QString content = file.readAll();
-    QString contentRef = fileRef.readAll();
+    const QByteArray content = file.readAll();
+    const QByteArray contentRef = fileRef.readAll();
 
-    if (content != contentRef)  {
+    if (content != contentRef) {
         appendFileDiff(fileRef.fileName(), file.fileName());
     }
 
@@ -152,7 +172,7 @@ void KConfigCompiler_Test::testRunning()
     QFETCH(QString, testName);
 
 #ifdef Q_OS_WIN
-    testName += QStringLiteral(".exe");
+    testName += QLatin1String{".exe"};
 #endif
 
     QString program = QFINDTESTDATA(testName);
@@ -173,10 +193,7 @@ void KConfigCompiler_Test::appendFileDiff(const QString &oldFile, const QString 
         return;
     }
 
-    QStringList args({
-        QStringLiteral("-u"),
-        QFileInfo(oldFile).absoluteFilePath(),
-        QFileInfo(newFile).absoluteFilePath() });
+    QStringList args({QStringLiteral("-u"), QFileInfo(oldFile).absoluteFilePath(), QFileInfo(newFile).absoluteFilePath()});
 
     QProcess process;
     process.start(m_diffExe, args, QIODevice::ReadOnly);
