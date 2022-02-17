@@ -1,27 +1,16 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 1997 Stefan Taferner (taferner@kde.org)
-    Copyright (C) 2000 Nicolas Hadacek (hadacek@kde.org)
-    Copyright (C) 2001,2002 Ellis Whitehead (ellis@kde.org)
+/*
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1997 Stefan Taferner <taferner@kde.org>
+    SPDX-FileCopyrightText: 2000 Nicolas Hadacek <hadacek@kde.org>
+    SPDX-FileCopyrightText: 2001, 2002 Ellis Whitehead <ellis@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License version 2 as published by the Free Software Foundation.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 #ifndef KSTANDARDSHORTCUT_H
 #define KSTANDARDSHORTCUT_H
 
-#include <QString>
 #include <QKeySequence>
+#include <QString>
 
 #include <kconfiggui_export.h>
 
@@ -42,7 +31,6 @@ namespace KStandardShortcut
  *the big array g_infoStandardShortcut[] ABSOLUTELY MUST BE THE SAME.
  * !!!    !!!!   !!!!!    !!!!
  *    !!!!    !!!     !!!!    !!!!
- * Remember to also update kdoctools/genshortcutents.cpp.
  *
  * Other Rules:
  *
@@ -54,8 +42,8 @@ namespace KStandardShortcut
  * Defines the identifier of all standard accelerators.
  */
 enum StandardShortcut {
-    //C++ requires that the value of an enum symbol be one more than the previous one.
-    //This means that everything will be well-ordered from here on.
+    // C++ requires that the value of an enum symbol be one more than the previous one.
+    // This means that everything will be well-ordered from here on.
     AccelNone = 0,
     // File menu
     Open, ///< Open file.
@@ -135,7 +123,8 @@ enum StandardShortcut {
     ShowToolbar, ///< Show/Hide the toolbar.
     ShowStatusbar, ///< Show/Hide the statusbar.
 #if KCONFIGGUI_ENABLE_DEPRECATED_SINCE(5, 39)
-    SaveOptions, ///< @deprecated since 5.39
+    SaveOptions ///< @deprecated since 5.39
+        KCONFIGGUI_ENUMERATOR_DEPRECATED_VERSION_BELATED(5, 82, 5, 39, "No known users"),
 #else
     SaveOptions_DEPRECATED_DO_NOT_USE,
 #endif
@@ -152,9 +141,25 @@ enum StandardShortcut {
     RenameFile, ///< Rename files or folders. @since 5.25
     MoveToTrash, ///< Move files or folders to the trash. @since 5.25
     Donate, ///< Open donation page on kde.org. @since 5.26
+    ShowHideHiddenFiles, ///< Toggle showing or hiding hidden files @since 5.70
+    CreateFolder, ///< Create a folder. @since 5.74
     // Insert new items here!
 
-    StandardShortcutCount // number of standard shortcuts
+    StandardShortcutCount, // number of standard shortcuts
+};
+
+/**
+ * Categories in which the standard shortcuts can be classified
+ * @since 5.74
+ */
+enum class Category {
+    InvalidCategory = -1,
+    File,
+    Edit,
+    Navigation,
+    View,
+    Settings,
+    Help,
 };
 
 /**
@@ -196,6 +201,7 @@ KCONFIGGUI_EXPORT QString whatsThis(StandardShortcut id);
  */
 KCONFIGGUI_EXPORT StandardShortcut find(const QKeySequence &keySeq);
 
+#if KCONFIGGUI_ENABLE_DEPRECATED_SINCE(5, 71)
 /**
  * Return the StandardShortcut id of the standard accel action which
  * has \a keyName as its name, or AccelNone if none of them do.
@@ -203,8 +209,22 @@ KCONFIGGUI_EXPORT StandardShortcut find(const QKeySequence &keySeq);
  * @param keyName the key sequence to search
  * @return the id of the standard accelerator, or AccelNone if there
  *          is none
+ * @deprecated since 5.71, use findByName(const QString &name) instead
  */
-KCONFIGGUI_EXPORT StandardShortcut find(const char *keyName);
+KCONFIGGUI_EXPORT
+KCONFIGGUI_DEPRECATED_VERSION(5, 71, "Use findByName(const QString &name) instead")
+StandardShortcut find(const char *keyName);
+#endif
+
+/**
+ * Return the StandardShortcut id of the standard accelerator action which
+ * has \p name as its name, or AccelNone if none of them do.
+ * @param name the name as returned by  name(StandardShortcut id)
+ * @return the id of the standard accelerator with the given name or AccelNone
+ * if there is no such accelerator
+ * @since 5.71
+ */
+KCONFIGGUI_EXPORT StandardShortcut findByName(const QString &name);
 
 /**
  * Returns the hardcoded default shortcut for @p id.
@@ -218,6 +238,12 @@ KCONFIGGUI_EXPORT QList<QKeySequence> hardcodedDefaultShortcut(StandardShortcut 
  * Saves the new shortcut \a cut for standard accel \a id.
  */
 KCONFIGGUI_EXPORT void saveShortcut(StandardShortcut id, const QList<QKeySequence> &newShortcut);
+
+/**
+ * Returns the appropriate category for the given StandardShortcut \p id.
+ * @since 5.73
+ */
+KCONFIGGUI_EXPORT Category category(StandardShortcut id);
 
 /**
  * Open file. Default: Ctrl-o
@@ -525,6 +551,13 @@ KCONFIGGUI_EXPORT const QList<QKeySequence> &deleteFile();
 KCONFIGGUI_EXPORT const QList<QKeySequence> &renameFile();
 
 /**
+ * Create a folder. Default: F10
+ * @return the shortcut of the standard accelerator
+ * @since 5.74
+ */
+KCONFIGGUI_EXPORT const QList<QKeySequence> &createFolder();
+
+/**
  * Moves files or folders to the trash. Default: Delete
  * @return the shortcut of the standard accelerator
  * @since 5.25
@@ -537,6 +570,13 @@ KCONFIGGUI_EXPORT const QList<QKeySequence> &moveToTrash();
  * @since 5.64
  */
 KCONFIGGUI_EXPORT const QList<QKeySequence> &preferences();
+
+/**
+ * Shows or hides hidden files. Defaults: Ctrl+H, Alt+.
+ * @return the shortcut of the standard accelerator
+ * @since 5.70
+ */
+KCONFIGGUI_EXPORT const QList<QKeySequence> &showHideHiddenFiles();
 }
 
 #endif // KSTANDARDSHORTCUT_H

@@ -3,52 +3,54 @@ remove_definitions(-DQT_NO_CAST_FROM_ASCII)
 
 include(ECMAddTests)
 
-find_package(Qt5Test ${REQUIRED_QT_VERSION} CONFIG QUIET)
-find_package(Qt5Concurrent ${REQUIRED_QT_VERSION} CONFIG QUIET)
+find_package(Qt${QT_MAJOR_VERSION}Test ${REQUIRED_QT_VERSION} CONFIG QUIET)
+find_package(Qt${QT_MAJOR_VERSION}Concurrent ${REQUIRED_QT_VERSION} CONFIG QUIET)
 find_package(Elektra)
 
-if(NOT Qt5Test_FOUND)
+if(NOT Qt${QT_MAJOR_VERSION}Test_FOUND)
     message(STATUS "Qt5Test not found, autotests will not be built.")
     return()
 endif()
 
-if(NOT Qt5Concurrent_FOUND)
+if(NOT Qt${QT_MAJOR_VERSION}Concurrent_FOUND)
     message(STATUS "Qt5Concurrent not found, autotests will not be built.")
     return()
 endif()
 
 # compile KEntryMap into the test since it's not exported
-set(kentrymaptest_SRCS kentrymaptest.cpp ../src/core/kconfigdata.cpp)
-ecm_add_test(${kentrymaptest_SRCS}
+ecm_add_test(
+  kentrymaptest.cpp
+  ../src/core/kconfigdata.cpp
   TEST_NAME kentrymaptest
-  LINK_LIBRARIES Qt5::Test
+  LINK_LIBRARIES Qt${QT_MAJOR_VERSION}::Test
 )
 target_include_directories(kentrymaptest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
 
 # compile KConfigUtils into the test since it's not exported
-set(test_kconfigutils_SRCS test_kconfigutils ../src/kconf_update/kconfigutils.cpp)
-ecm_add_test(${test_kconfigutils_SRCS}
+ecm_add_test(
+  test_kconfigutils.cpp
+  ../src/kconf_update/kconfigutils.cpp
   TEST_NAME test_kconfigutils
-  LINK_LIBRARIES KF5::ConfigCore Qt5::Test
+  LINK_LIBRARIES KF5::ConfigCore Qt${QT_MAJOR_VERSION}::Test
 )
 target_include_directories(test_kconfigutils PRIVATE ../src/kconf_update)
 
-qt5_add_resources(sharedconfigresources sharedconfigresources.qrc)
+qt_add_resources(sharedconfigresources sharedconfigresources.qrc)
 
-ecm_add_test(ksharedconfigtest ${sharedconfigresources} TEST_NAME kconfigcore-ksharedconfigtest LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent)
+ecm_add_test(ksharedconfigtest.cpp ${sharedconfigresources} TEST_NAME kconfigcore-ksharedconfigtest LINK_LIBRARIES KF5::ConfigCore Qt${QT_MAJOR_VERSION}::Test Qt${QT_MAJOR_VERSION}::Concurrent)
 
 # test for fallback to :/kconfig/xxxx config resource
-qt5_add_resources(fallbackconfigresources fallbackconfigresources.qrc)
-ecm_add_test(fallbackconfigresourcestest ${fallbackconfigresources} TEST_NAME kconfigcore-fallbackconfigresourcestest LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent)
+qt_add_resources(fallbackconfigresources fallbackconfigresources.qrc)
+ecm_add_test(fallbackconfigresourcestest.cpp ${fallbackconfigresources} TEST_NAME kconfigcore-fallbackconfigresourcestest LINK_LIBRARIES KF5::ConfigCore Qt${QT_MAJOR_VERSION}::Test Qt${QT_MAJOR_VERSION}::Concurrent)
 
 ecm_add_tests(
    kconfignokdehometest.cpp
    kconfigtest.cpp
    kdesktopfiletest.cpp
    test_kconf_update.cpp
-   ksharedconfig_in_global_object
+   ksharedconfig_in_global_object.cpp
    NAME_PREFIX kconfigcore-
-   LINK_LIBRARIES KF5::ConfigCore Qt5::Test Qt5::Concurrent
+   LINK_LIBRARIES KF5::ConfigCore Qt${QT_MAJOR_VERSION}::Test Qt${QT_MAJOR_VERSION}::Concurrent
 )
 
 if (ELEKTRA_FOUND AND NOT DEFINED SkipTest)
@@ -72,15 +74,27 @@ endif ()
 
 target_include_directories(test_kconf_update PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../src/kconf_update)
 
-if(TARGET Qt5::Gui)
+if(TARGET Qt${QT_MAJOR_VERSION}::Gui)
 ecm_add_tests(
    kconfigguitest.cpp
    kconfigloadertest.cpp
    kconfigskeletontest.cpp
    kstandardshortcuttest.cpp
    NAME_PREFIX kconfiggui-
-   LINK_LIBRARIES KF5::ConfigGui Qt5::Test
+   LINK_LIBRARIES KF5::ConfigGui Qt${QT_MAJOR_VERSION}::Test
 )
+
+ecm_add_test(
+   kstandardshortcutwatchertest.cpp
+   # add sources instead of linking so we can use the unexported initialize()
+   ../src/gui/kstandardshortcut.cpp
+   ../src/gui/kstandardshortcutwatcher.cpp
+   LINK_LIBRARIES KF5::ConfigCore Qt${QT_MAJOR_VERSION}::Gui Qt${QT_MAJOR_VERSION}::Test
+   TEST_NAME kstandardshortcutwatchertest
+   NAME_PREFIX kconfiggui-
+)
+target_include_directories(kstandardshortcutwatchertest PRIVATE "$<TARGET_PROPERTY:KF5ConfigGui,INTERFACE_INCLUDE_DIRECTORIES>")
+target_compile_definitions(kstandardshortcutwatchertest PRIVATE "-DKCONFIGGUI_STATIC_DEFINE")
 
 # These tests do a global cleanup of ~/.qttest, so they can't run in parallel
 set_tests_properties(kconfigcore-kconfigtest PROPERTIES RUN_SERIAL TRUE)

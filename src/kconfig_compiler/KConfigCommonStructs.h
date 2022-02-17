@@ -1,45 +1,31 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
-    Copyright (c) 2003 Cornelius Schumacher <schumacher@kde.org>
-    Copyright (c) 2003 Waldo Bastian <bastian@kde.org>
-    Copyright (c) 2003 Zack Rusin <zack@kde.org>
-    Copyright (c) 2006 Michaël Larouche <michael.larouche@kdemail.net>
-    Copyright (c) 2008 Allen Winter <winter@kde.org>
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
+/*
+    This file is part of the KDE libraries.
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    SPDX-FileCopyrightText: 2003 Cornelius Schumacher <schumacher@kde.org>
+    SPDX-FileCopyrightText: 2003 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 2003 Zack Rusin <zack@kde.org>
+    SPDX-FileCopyrightText: 2006 Michaël Larouche <michael.larouche@kdemail.net>
+    SPDX-FileCopyrightText: 2008 Allen Winter <winter@kde.org>
+    SPDX-FileCopyrightText: 2020 Tomaz Cananbrava <tcanabrava@kde.org>
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIGCOMMONSTRUCTS_H
 #define KCONFIGCOMMONSTRUCTS_H
 
+#include <QList>
 #include <QString>
 #include <QVector>
-#include <QList>
 
 #include "KConfigParameters.h"
 
-struct Param
-{
+struct Param {
     QString name;
     QString type;
 };
 
-struct Signal
-{
+struct Signal {
     QString name;
     QString label;
     QList<Param> arguments;
@@ -65,9 +51,13 @@ public:
     class Choices
     {
     public:
-        Choices() {}
+        Choices()
+        {
+        }
         Choices(const QList<Choice> &d, const QString &n, const QString &p)
-            : prefix(p), choices(d), mName(n)
+            : prefix(p)
+            , choices(d)
+            , mName(n)
         {
             int i = n.indexOf(QLatin1String("::"));
             if (i >= 0) {
@@ -88,6 +78,7 @@ public:
         {
             return !mExternalQual.isEmpty();
         }
+
     private:
         QString mName;
         QString mExternalQual;
@@ -95,6 +86,7 @@ public:
 
 public:
     QString group;
+    QString parentGroup;
     QString type;
     QString key;
     QString name;
@@ -122,6 +114,7 @@ public:
 struct ParseResult {
     QString cfgFileName;
     bool cfgFileNameArg = false;
+    bool cfgStateConfig = false;
     QList<Param> parameters;
     QList<Signal> signalList;
     QStringList includes;
@@ -172,33 +165,18 @@ QString filenameOnly(const QString &path);
 
 QString itemDeclaration(const CfgEntry *e, const KConfigParameters &cfg);
 
-QString translatedString(
-    const KConfigParameters &cfg,
-    const QString &string, 
-    const QString &context = QString(),
-    const QString &param = QString(),
-    const QString &paramValue = QString());
+QString translatedString(const KConfigParameters &cfg,
+                         const QString &string,
+                         const QString &context = QString(),
+                         const QString &param = QString(),
+                         const QString &paramValue = QString());
 
 // TODO: Sanitize those functions.
-QString newItem(
-    const CfgEntry *entry,
-    const QString &key,
-    const QString &defaultValue,
-    const KConfigParameters &cfg,
-    const QString &param = QString());
+QString newItem(const CfgEntry *entry, const QString &key, const QString &defaultValue, const KConfigParameters &cfg, const QString &param = QString());
 
-QString newInnerItem(
-    const CfgEntry *entry,
-    const QString &key,
-    const QString &defaultValue,
-    const KConfigParameters &cfg,
-    const QString &param = QString());
+QString newInnerItem(const CfgEntry *entry, const QString &key, const QString &defaultValue, const KConfigParameters &cfg, const QString &param = QString());
 
-QString userTextsFunctions(
-    const CfgEntry *e,
-    const KConfigParameters &cfg,
-    QString itemVarStr = QString(), 
-    const QString &i = QString());
+QString userTextsFunctions(const CfgEntry *e, const KConfigParameters &cfg, QString itemVarStr = QString(), const QString &i = QString());
 
 QString paramString(const QString &s, const CfgEntry *e, int i);
 QString paramString(const QString &group, const QList<Param> &parameters);

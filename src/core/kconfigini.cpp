@@ -1,47 +1,34 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (C) 1997-1999 Matthias Kalle Dalheimer (kalle@kde.org)
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kconfigini_p.h"
 
-#include "kconfig.h"
-#include "kconfigbackend_p.h"
 #include "bufferfragment_p.h"
-#include "kconfigdata.h"
+#include "kconfig.h"
 #include "kconfig_core_log_settings.h"
+#include "kconfigbackend_p.h"
+#include "kconfigdata_p.h"
 
-#include <qsavefile.h>
-#include <qlockfile.h>
-#include <qdatetime.h>
-#include <qdir.h>
-#include <qfile.h>
-#include <qfileinfo.h>
-#include <qdebug.h>
+#include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QLockFile>
+#include <QSaveFile>
 #include <qplatformdefs.h>
 
 #ifndef Q_OS_WIN
 #include <unistd.h> // getuid, close
 #endif
-#include <sys/types.h> // uid_t
 #include <fcntl.h> // open
+#include <sys/types.h> // uid_t
 
 KCONFIGCORE_EXPORT bool kde_kiosk_exception = false; // flag to disable kiosk restrictions
 
@@ -57,12 +44,14 @@ static QByteArray lookup(const KConfigIniBackend::BufferFragment fragment, QHash
 
 QString KConfigIniBackend::warningProlog(const QFile &file, int line)
 {
-    return QStringLiteral("KConfigIni: In file %2, line %1: ")
-           .arg(line).arg(file.fileName());
+    // %2 then %1 i.e. int before QString, so that the QString is last
+    // This avoids a wrong substitution if the fileName itself contains %1
+    return QStringLiteral("KConfigIni: In file %2, line %1: ").arg(line).arg(file.fileName());
 }
 
 KConfigIniBackend::KConfigIniBackend()
-    : KConfigBackend(), lockFile(nullptr)
+    : KConfigBackend()
+    , lockFile(nullptr)
 {
 }
 
@@ -70,33 +59,22 @@ KConfigIniBackend::~KConfigIniBackend()
 {
 }
 
-KConfigBackend::ParseInfo
-KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entryMap,
-                               ParseOptions options)
+KConfigBackend::ParseInfo KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entryMap, ParseOptions options)
 {
     return parseConfig(currentLocale, entryMap, options, false);
 }
 
 // merging==true is the merging that happens at the beginning of writeConfig:
 // merge changes in the on-disk file with the changes in the KConfig object.
-KConfigBackend::ParseInfo
-KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entryMap,
-                               ParseOptions options, bool merging)
+KConfigBackend::ParseInfo KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entryMap, ParseOptions options, bool merging)
 {
-    if (filePath().isEmpty() || !QFile::exists(filePath())) {
+    if (filePath().isEmpty()) {
         return ParseOk;
     }
 
-    const QByteArray currentLanguage = currentLocale.split('_').first();
-
-    bool bDefault = options & ParseDefaults;
-    bool allowExecutableValues = options & ParseExpansions;
-
-    QByteArray currentGroup("<default>");
-
     QFile file(filePath());
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return ParseOpenError;
+        return file.exists() ? ParseOpenError : ParseOk;
     }
 
     QList<QByteArray> immutableGroups;
@@ -113,6 +91,13 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
     unsigned int len = contents.length();
     unsigned int startOfLine = 0;
 
+    const int langIdx = currentLocale.indexOf('_');
+    const QByteArray currentLanguage = langIdx >= 0 ? currentLocale.left(langIdx) : currentLocale;
+
+    QByteArray currentGroup("<default>");
+    bool bDefault = options & ParseDefaults;
+    bool allowExecutableValues = options & ParseExpansions;
+
     // Reduce memory overhead by making use of implicit sharing
     // This assumes that config files contain only a small amount of
     // different fragments which are repeated often.
@@ -124,7 +109,7 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
     while (startOfLine < len) {
         BufferFragment line = contents.split('\n', &startOfLine);
         line.trim();
-        lineNo++;
+        ++lineNo;
 
         // skip empty lines and lines beginning with '#'
         if (line.isEmpty() || line.at(0) == '#') {
@@ -135,7 +120,8 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
             groupOptionImmutable = fileOptionImmutable;
 
             QByteArray newGroup;
-            int start = 1, end;
+            int start = 1;
+            int end = 0;
             do {
                 end = start;
                 for (;;) {
@@ -147,10 +133,13 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
                     if (line.at(end) == ']') {
                         break;
                     }
-                    end++;
+                    ++end;
                 }
-                if (end + 1 == line.length() && start + 2 == end &&
-                    line.at(start) == '$' && line.at(start + 1) == 'i') {
+                /* clang-format off */
+                if (end + 1 == line.length()
+                    && start + 2 == end
+                    && line.at(start) == '$'
+                    && line.at(start + 1) == 'i') { /* clang-format on */
                     if (newGroup.isEmpty()) {
                         fileOptionImmutable = !kde_kiosk_exception;
                     } else {
@@ -174,14 +163,14 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
             }
 
             if (groupOptionImmutable)
-                // Do not make the groups immutable until the entries from
-                // this file have been added.
+            // Do not make the groups immutable until the entries from
+            // this file have been added.
             {
                 immutableGroups.append(currentGroup);
             }
         } else {
             if (groupSkip && !bDefault) {
-                continue;    // skip entry
+                continue; // skip entry
             }
 
             BufferFragment aKey;
@@ -211,8 +200,7 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
             while ((start = aKey.lastIndexOf('[')) >= 0) {
                 int end = aKey.indexOf(']', start);
                 if (end < 0) {
-                    qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, lineNo)
-                                                << "Invalid entry (missing ']')";
+                    qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, lineNo) << "Invalid entry (missing ']')";
                     goto next_line;
                 } else if (end > start + 1 && aKey.at(start + 1) == '$') { // found option(s)
                     int i = start + 2;
@@ -237,12 +225,11 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
                         default:
                             break;
                         }
-                        i++;
+                        ++i;
                     }
                 } else { // found a locale
                     if (!locale.isNull()) {
-                        qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, lineNo)
-                                                    << "Invalid entry (second locale!?)";
+                        qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, lineNo) << "Invalid entry (second locale!?)";
                         goto next_line;
                     }
 
@@ -262,7 +249,7 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
                         if (merging) {
                             entryOptions |= KEntryMap::EntryRawKey;
                         } else {
-                            goto next_line;    // skip this entry if we're not merging
+                            goto next_line; // skip this entry if we're not merging
                         }
                     }
                 }
@@ -300,25 +287,24 @@ KConfigIniBackend::parseConfig(const QByteArray &currentLocale, KEntryMap &entry
     }
 
     // now make sure immutable groups are marked immutable
-    for (const QByteArray &group : qAsConst(immutableGroups)) {
+    for (const QByteArray &group : std::as_const(immutableGroups)) {
         entryMap.setEntry(group, QByteArray(), QByteArray(), KEntryMap::EntryImmutable);
     }
 
     return fileOptionImmutable ? ParseImmutable : ParseOk;
 }
 
-void KConfigIniBackend::writeEntries(const QByteArray &locale, QIODevice &file,
-                                     const KEntryMap &map, bool defaultGroup, bool &firstEntry)
+void KConfigIniBackend::writeEntries(const QByteArray &locale, QIODevice &file, const KEntryMap &map, bool defaultGroup, bool &firstEntry)
 {
     QByteArray currentGroup;
     bool groupIsImmutable = false;
-    const KEntryMapConstIterator end = map.constEnd();
-    for (KEntryMapConstIterator it = map.constBegin(); it != end; ++it) {
+    const auto end = map.cend();
+    for (auto it = map.cbegin(); it != end; ++it) {
         const KEntryKey &key = it.key();
 
         // Either process the default group or all others
         if ((key.mGroup != "<default>") == defaultGroup) {
-            continue;    // skip
+            continue; // skip
         }
 
         // the only thing we care about groups is, is it immutable?
@@ -346,7 +332,7 @@ void KConfigIniBackend::writeEntries(const QByteArray &locale, QIODevice &file,
                             }
                         }
                         file.write("\\x24");
-                        start++;
+                        ++start;
                     }
                 nope:
                     file.write(stringToPrintable(currentGroup.mid(start), GroupString));
@@ -378,9 +364,9 @@ void KConfigIniBackend::writeEntries(const QByteArray &locale, QIODevice &file,
         }
         if (currentEntry.bDeleted) {
             if (currentEntry.bImmutable) {
-                file.write("[$di]", 5);    // Deleted + immutable
+                file.write("[$di]", 5); // Deleted + immutable
             } else {
-                file.write("[$d]", 4);    // Deleted
+                file.write("[$d]", 4); // Deleted
             }
         } else {
             if (currentEntry.bImmutable || currentEntry.bExpand) {
@@ -411,8 +397,7 @@ void KConfigIniBackend::writeEntries(const QByteArray &locale, QIODevice &file, 
     writeEntries(locale, file, map, false, firstEntry);
 }
 
-bool KConfigIniBackend::writeConfig(const QByteArray &locale, KEntryMap &entryMap,
-                                    WriteOptions options)
+bool KConfigIniBackend::writeConfig(const QByteArray &locale, KEntryMap &entryMap, WriteOptions options)
 {
     Q_ASSERT(!filePath().isEmpty());
 
@@ -442,19 +427,22 @@ bool KConfigIniBackend::writeConfig(const QByteArray &locale, KEntryMap &entryMa
 
         // only write entries that have the same "globality" as the file
         if (it->bGlobal == bGlobal) {
-            if (it->bReverted) {
+            if (it->bReverted && it->bOverridesGlobal) {
+                it->bDeleted = true;
+                writeMap[key] = *it;
+            } else if (it->bReverted) {
                 writeMap.remove(key);
             } else if (!it->bDeleted) {
                 writeMap[key] = *it;
             } else {
                 KEntryKey defaultKey = key;
                 defaultKey.bDefault = true;
-                if (!entryMap.contains(defaultKey)) {
+                if (!entryMap.contains(defaultKey) && !it->bOverridesGlobal) {
                     writeMap.remove(key); // remove the deleted entry if there is no default
-                    //qDebug() << "Detected as deleted=>removed:" << key.mGroup << key.mKey << "global=" << bGlobal;
+                    // qDebug() << "Detected as deleted=>removed:" << key.mGroup << key.mKey << "global=" << bGlobal;
                 } else {
                     writeMap[key] = *it; // otherwise write an explicitly deleted entry
-                    //qDebug() << "Detected as deleted=>[$d]:" << key.mGroup << key.mKey << "global=" << bGlobal;
+                    // qDebug() << "Detected as deleted=>[$d]:" << key.mGroup << key.mKey << "global=" << bGlobal;
                 }
             }
             it->bDirty = false;
@@ -471,7 +459,7 @@ bool KConfigIniBackend::writeConfig(const QByteArray &locale, KEntryMap &entryMa
     QFileInfo fi(filePath());
     if (fi.exists()) {
 #ifdef Q_OS_WIN
-        //TODO: getuid does not exist on windows, use GetSecurityInfo and GetTokenInformation instead
+        // TODO: getuid does not exist on windows, use GetSecurityInfo and GetTokenInformation instead
         createNew = false;
 #else
         if (fi.ownerId() == ::getuid()) {
@@ -517,24 +505,19 @@ bool KConfigIniBackend::writeConfig(const QByteArray &locale, KEntryMap &entryMa
         }
     } else {
         // Open existing file. *DON'T* create it if it suddenly does not exist!
-#ifdef Q_OS_UNIX
+#if defined(Q_OS_UNIX) && !defined(Q_OS_ANDROID)
         int fd = QT_OPEN(QFile::encodeName(filePath()).constData(), O_WRONLY | O_TRUNC);
         if (fd < 0) {
             return false;
         }
-        FILE *fp = ::fdopen(fd, "w");
-        if (!fp) {
-            QT_CLOSE(fd);
-            return false;
-        }
         QFile f;
-        if (!f.open(fp, QIODevice::WriteOnly)) {
-            fclose(fp);
+        if (!f.open(fd, QIODevice::WriteOnly)) {
+            QT_CLOSE(fd);
             return false;
         }
         writeEntries(locale, f, writeMap);
         f.close();
-        fclose(fp);
+        QT_CLOSE(fd);
 #else
         QFile f(filePath());
         // XXX This is broken - it DOES create the file if it is suddenly gone.
@@ -583,7 +566,7 @@ void KConfigIniBackend::createEnclosing()
 {
     const QString file = filePath();
     if (file.isEmpty()) {
-        return;    // nothing to do
+        return; // nothing to do
     }
 
     // Create the containing dir, maybe it wasn't there
@@ -607,10 +590,11 @@ void KConfigIniBackend::setFilePath(const QString &file)
         setLocalFilePath(info.canonicalFilePath());
     } else {
         const QString dir = info.dir().canonicalPath();
-        if (!dir.isEmpty())
+        if (!dir.isEmpty()) {
             setLocalFilePath(dir + QLatin1Char('/') + info.fileName());
-        else
+        } else {
             setLocalFilePath(file);
+        }
     }
 }
 
@@ -632,16 +616,23 @@ bool KConfigIniBackend::lock()
     Q_ASSERT(!filePath().isEmpty());
 
     if (!lockFile) {
-        lockFile = new QLockFile(filePath() + QLatin1String(".lock"));
+#ifdef Q_OS_ANDROID
+        // handle content Uris properly
+        if (filePath().startsWith(QLatin1String("content://"))) {
+            // we can't create file at an arbitrary location, so use internal storage to create one
+
+            // NOTE: filename can be the same, but because this lock is short lived we may never have a collision
+            lockFile = new QLockFile(QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QLatin1String("/")
+                                     + QFileInfo(filePath()).fileName() + QLatin1String(".lock"));
+        } else {
+#endif
+            lockFile = new QLockFile(filePath() + QLatin1String(".lock"));
+#ifdef Q_OS_ANDROID
+        }
+#endif
     }
 
     lockFile->lock();
-
-    if (lockFile->error() == QLockFile::UnknownError) { //try creating dir if locking failed
-        this->createEnclosing();
-        lockFile->lock();
-    }
-
     return lockFile->isLocked();
 }
 
@@ -661,12 +652,9 @@ namespace
 {
 // serialize an escaped byte at the end of @param data
 // @param data should have room for 4 bytes
-char* escapeByte(char* data, unsigned char s)
+char *escapeByte(char *data, unsigned char s)
 {
-    static const char nibbleLookup[] = {
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-    };
+    static const char nibbleLookup[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
     *data++ = '\\';
     *data++ = 'x';
     *data++ = nibbleLookup[s >> 4];
@@ -734,7 +722,7 @@ public:
         return count > 0 && count == charLength;
     }
     // Add the bytes in this UTF8 character in escaped form to data.
-    char* escapeBytes(char* data)
+    char *escapeBytes(char *data)
     {
         for (unsigned char i = 0; i < count; ++i) {
             data = escapeByte(data, bytes[i]);
@@ -744,7 +732,7 @@ public:
     }
     // Add the bytes of the UTF8 character to a buffer.
     // Only call this if isComplete() returns true.
-    char* writeUtf8(char* data)
+    char *writeUtf8(char *data)
     {
         for (unsigned char i = 0; i < count; ++i) {
             *data++ = bytes[i];
@@ -756,7 +744,7 @@ public:
     // character is not complete, write the escaped bytes.
     // This is useful to handle the state that remains after handling
     // all bytes in a buffer.
-    char* write(char* data)
+    char *write(char *data)
     {
         if (isComplete()) {
             data = writeUtf8(data);
@@ -770,13 +758,13 @@ public:
 
 QByteArray KConfigIniBackend::stringToPrintable(const QByteArray &aString, StringType type)
 {
-    if (aString.isEmpty()) {
+    const int len = aString.size();
+    if (len == 0) {
         return aString;
     }
-    const int l = aString.length();
 
-    QByteArray result; // Guesstimated that it's good to avoid data() initialization for a length of l*4
-    result.resize(l * 4); // Maximum 4x as long as source string due to \x<ab> escape sequences
+    QByteArray result; // Guesstimated that it's good to avoid data() initialization for a length of len*4
+    result.resize(len * 4); // Maximum 4x as long as source string due to \x<ab> escape sequences
     const char *s = aString.constData();
     int i = 0;
     char *data = result.data();
@@ -786,11 +774,11 @@ QByteArray KConfigIniBackend::stringToPrintable(const QByteArray &aString, Strin
     if (s[0] == ' ' && type != GroupString) {
         *data++ = '\\';
         *data++ = 's';
-        i++;
+        ++i;
     }
     Utf8Char utf8;
 
-    for (; i < l; ++i/*, r++*/) {
+    for (; i < len; ++i) {
         switch (s[i]) {
         default:
             if (utf8.addByte(s[i])) {
@@ -874,8 +862,8 @@ char KConfigIniBackend::charFromHex(const char *str, const QFile &file, int line
         } else {
             QByteArray e(str, 2);
             e.prepend("\\x");
-            qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, line) << "Invalid hex character " << c
-                                        << " in \\x<nn>-type escape sequence \"" << e.constData() << "\".";
+            qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, line) << "Invalid hex character " << c << " in \\x<nn>-type escape sequence \"" << e.constData()
+                                        << "\".";
             return 'x';
         }
     }
@@ -897,7 +885,7 @@ void KConfigIniBackend::printableToString(BufferFragment *aString, const QFile &
             *r = str[i];
         } else {
             // Probable escape sequence
-            i++;
+            ++i;
             if (i >= l) { // Line ends after backslash - stop.
                 *r = '\\';
                 break;
@@ -922,13 +910,13 @@ void KConfigIniBackend::printableToString(BufferFragment *aString, const QFile &
             case ';':
                 // not really an escape sequence, but allowed in .desktop files, don't strip '\;' from the string
                 *r = '\\';
-                r++;
+                ++r;
                 *r = ';';
                 break;
             case ',':
                 // not really an escape sequence, but allowed in .desktop files, don't strip '\,' from the string
                 *r = '\\';
-                r++;
+                ++r;
                 *r = ',';
                 break;
             case 'x':
@@ -942,8 +930,7 @@ void KConfigIniBackend::printableToString(BufferFragment *aString, const QFile &
                 break;
             default:
                 *r = '\\';
-                qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, line)
-                                            << QStringLiteral("Invalid escape sequence \"\\%1\".").arg(str[i]);
+                qCWarning(KCONFIG_CORE_LOG) << warningProlog(file, line) << QStringLiteral("Invalid escape sequence \"\\%1\".").arg(str[i]);
             }
         }
     }

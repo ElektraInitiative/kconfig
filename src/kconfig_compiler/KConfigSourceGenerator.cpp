@@ -1,42 +1,26 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
-    Copyright (c) 2003 Cornelius Schumacher <schumacher@kde.org>
-    Copyright (c) 2003 Waldo Bastian <bastian@kde.org>
-    Copyright (c) 2003 Zack Rusin <zack@kde.org>
-    Copyright (c) 2006 Michaël Larouche <michael.larouche@kdemail.net>
-    Copyright (c) 2008 Allen Winter <winter@kde.org>
-    Copyright (C) 2020 Tomaz Cananbrava (tcanabrava@kde.org)
+/*
+    This file is part of the KDE libraries
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
+    SPDX-FileCopyrightText: 2003 Cornelius Schumacher <schumacher@kde.org>
+    SPDX-FileCopyrightText: 2003 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 2003 Zack Rusin <zack@kde.org>
+    SPDX-FileCopyrightText: 2006 Michaël Larouche <michael.larouche@kdemail.net>
+    SPDX-FileCopyrightText: 2008 Allen Winter <winter@kde.org>
+    SPDX-FileCopyrightText: 2020 Tomaz Cananbrava <tcanabrava@kde.org>
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "KConfigSourceGenerator.h"
-#include "KConfigCommonStructs.h"
 
+#include <QRegularExpression>
 
-KConfigSourceGenerator::KConfigSourceGenerator(
-    const QString &inputFile,
-    const QString &baseDir,
-    const KConfigParameters &cfg,
-    ParseResult &result)
-    : KConfigCodeGeneratorBase(inputFile, baseDir, baseDir + cfg.baseName + QLatin1Char('.') + cfg.sourceExtension, cfg, result)
+KConfigSourceGenerator::KConfigSourceGenerator(const QString &inputFile, const QString &baseDir, const KConfigParameters &cfg, ParseResult &parseResult)
+    : KConfigCodeGeneratorBase(inputFile, baseDir, baseDir + cfg.baseName + QLatin1Char('.') + cfg.sourceExtension, cfg, parseResult)
 {
 }
 
-void KConfigSourceGenerator::start() 
+void KConfigSourceGenerator::start()
 {
     KConfigCodeGeneratorBase::start();
     stream() << '\n';
@@ -66,7 +50,7 @@ void KConfigSourceGenerator::createHeaders()
     // TODO: Make addQuotes return a string instead of replacing it inplace.
     addQuotes(headerName);
 
-    addHeaders({ headerName });
+    addHeaders({headerName});
     stream() << '\n';
 
     addHeaders(cfg().sourceIncludes);
@@ -108,7 +92,7 @@ void KConfigSourceGenerator::createPrivateDPointerImplementation()
     stream() << "  public:\n";
 
     // Create Members
-    for (auto *entry : parseResult.entries) {
+    for (const auto *entry : std::as_const(parseResult.entries)) {
         if (entry->group != group) {
             group = entry->group;
             stream() << '\n';
@@ -123,12 +107,11 @@ void KConfigSourceGenerator::createPrivateDPointerImplementation()
     stream() << "\n    // items\n";
 
     // Create Items.
-    for (auto *entry : parseResult.entries) {
-        const QString declType = entry->signalList.isEmpty()
-                ? QString(cfg().inherits + QStringLiteral("::Item") + itemType(entry->type))
-                : QStringLiteral("KConfigCompilerSignallingItem");
+    for (const auto *entry : std::as_const(parseResult.entries)) {
+        const QString declType = entry->signalList.isEmpty() ? QString(cfg().inherits + QStringLiteral("::Item") + itemType(entry->type))
+                                                             : QStringLiteral("KConfigCompilerSignallingItem");
 
-        stream() << "    " << declType << " *" << itemVar( entry, cfg() );
+        stream() << "    " << declType << " *" << itemVar(entry, cfg());
         if (!entry->param.isEmpty()) {
             stream() << QStringLiteral("[%1]").arg(entry->paramMax + 1);
         }
@@ -155,7 +138,7 @@ void KConfigSourceGenerator::createSingletonImplementation()
     stream() << '{' << '\n';
     stream() << "  public:\n";
     stream() << "    " << cfg().className << "Helper() : q(nullptr) {}\n";
-    stream() << "    ~" << cfg().className << "Helper() { delete q; }\n";
+    stream() << "    ~" << cfg().className << "Helper() { delete q; q = nullptr; }\n";
     stream() << "    " << cfg().className << "Helper(const " << cfg().className << "Helper&) = delete;\n";
     stream() << "    " << cfg().className << "Helper& operator=(const " << cfg().className << "Helper&) = delete;\n";
     stream() << "    " << cfg().className << " *q;\n";
@@ -179,7 +162,7 @@ void KConfigSourceGenerator::createSingletonImplementation()
     stream() << "}\n\n";
 
     if (parseResult.cfgFileNameArg) {
-        auto instance = [this] (const QString &type, const QString &arg, bool isString) {
+        auto instance = [this](const QString &type, const QString &arg, bool isString) {
             stream() << "void " << cfg().className << "::instance(" << type << " " << arg << ")\n";
             stream() << "{\n";
             stream() << "  if (s_global" << cfg().className << "()->q) {\n";
@@ -187,7 +170,9 @@ void KConfigSourceGenerator::createSingletonImplementation()
             stream() << "     return;\n";
             stream() << "  }\n";
             stream() << "  new " << cfg().className << "(";
-            if (isString) {
+            if (parseResult.cfgStateConfig) {
+                stream() << "KSharedConfig::openStateConfig(" << arg << ")";
+            } else if (isString) {
                 stream() << "KSharedConfig::openConfig(" << arg << ")";
             } else {
                 stream() << "std::move(" << arg << ")";
@@ -204,11 +189,11 @@ void KConfigSourceGenerator::createSingletonImplementation()
 void KConfigSourceGenerator::createPreamble()
 {
     QString cppPreamble;
-    for (const auto entry : parseResult.entries) {
+    for (const auto *entry : std::as_const(parseResult.entries)) {
         if (entry->paramValues.isEmpty()) {
             continue;
         }
-        
+
         cppPreamble += QStringLiteral("const char* const ") + cfg().className + QStringLiteral("::") + enumName(entry->param);
         cppPreamble += cfg().globalEnums
             ? QStringLiteral("ToString[] = { \"") + entry->paramValues.join(QStringLiteral("\", \"")) + QStringLiteral("\" };\n")
@@ -231,9 +216,8 @@ void KConfigSourceGenerator::createConstructorParameterList()
         stream() << (parseResult.parameters.isEmpty() ? "" : ",");
     }
 
-    for (QList<Param>::ConstIterator it = parseResult.parameters.constBegin();
-            it != parseResult.parameters.constEnd(); ++it) {
-        if (it != parseResult.parameters.constBegin()) {
+    for (auto it = parseResult.parameters.cbegin(); it != parseResult.parameters.cend(); ++it) {
+        if (it != parseResult.parameters.cbegin()) {
             stream() << ",";
         }
         stream() << " " << param((*it).type) << " " << (*it).name;
@@ -245,17 +229,18 @@ void KConfigSourceGenerator::createConstructorParameterList()
         }
         stream() << " QObject *parent";
     }
-
 }
 
 void KConfigSourceGenerator::createParentConstructorCall()
 {
     stream() << cfg().inherits << "(";
-    if (!parseResult.cfgFileName.isEmpty()) {
+    if (parseResult.cfgStateConfig) {
+        stream() << " KSharedConfig::openStateConfig(QStringLiteral( \"" << parseResult.cfgFileName << "\") ";
+    } else if (!parseResult.cfgFileName.isEmpty()) {
         stream() << " QStringLiteral( \"" << parseResult.cfgFileName << "\" ";
     }
     if (parseResult.cfgFileNameArg) {
-        if (! cfg().forceStringFilename) {
+        if (!cfg().forceStringFilename) {
             stream() << " std::move( config ) ";
         } else {
             stream() << " config ";
@@ -269,7 +254,7 @@ void KConfigSourceGenerator::createParentConstructorCall()
 
 void KConfigSourceGenerator::createInitializerList()
 {
-    for (const auto &parameter : parseResult.parameters) {
+    for (const auto &parameter : std::as_const(parseResult.parameters)) {
         stream() << "  , mParam" << parameter.name << "(" << parameter.name << ")\n";
     }
 
@@ -284,26 +269,20 @@ void KConfigSourceGenerator::createEnums(const CfgEntry *entry)
         return;
     }
     stream() << "  QList<" << cfg().inherits << "::ItemEnum::Choice> values" << entry->name << ";\n";
-    
-    for (const auto &choice : qAsConst(entry->choices.choices)) {
+
+    for (const auto &choice : std::as_const(entry->choices.choices)) {
         stream() << "  {\n";
         stream() << "    " << cfg().inherits << "::ItemEnum::Choice choice;\n";
         stream() << "    choice.name = QStringLiteral(\"" << choice.name << "\");\n";
         if (cfg().setUserTexts) {
             if (!choice.label.isEmpty()) {
-                stream() << "    choice.label = "
-                    << translatedString(cfg(), choice.label, choice.context)
-                    << ";\n";
+                stream() << "    choice.label = " << translatedString(cfg(), choice.label, choice.context) << ";\n";
             }
             if (!choice.toolTip.isEmpty()) {
-                stream() << "    choice.toolTip = "
-                    << translatedString(cfg(), choice.toolTip, choice.context)
-                    << ";\n";
+                stream() << "    choice.toolTip = " << translatedString(cfg(), choice.toolTip, choice.context) << ";\n";
             }
             if (!choice.whatsThis.isEmpty()) {
-                stream() << "    choice.whatsThis = "
-                    << translatedString(cfg(), choice.whatsThis, choice.context)
-                    << ";\n";
+                stream() << "    choice.whatsThis = " << translatedString(cfg(), choice.whatsThis, choice.context) << ";\n";
             }
         }
         stream() << "    values" << entry->name << ".append( choice );\n";
@@ -316,12 +295,10 @@ void KConfigSourceGenerator::createNormalEntry(const CfgEntry *entry, const QStr
     const QString itemVarStr = itemPath(entry, cfg());
     const QString innerItemVarStr = innerItemVar(entry, cfg());
     if (!entry->signalList.isEmpty()) {
-        stream() << "  " << innerItemVarStr << " = "
-            << newInnerItem(entry, key, entry->defaultValue, cfg()) << '\n';
+        stream() << "  " << innerItemVarStr << " = " << newInnerItem(entry, key, entry->defaultValue, cfg()) << '\n';
     }
 
-    stream() << "  " << itemVarStr << " = "
-        << newItem(entry, key, entry->defaultValue, cfg()) << '\n';
+    stream() << "  " << itemVarStr << " = " << newItem(entry, key, entry->defaultValue, cfg()) << '\n';
 
     if (!entry->min.isEmpty()) {
         stream() << "  " << innerItemVarStr << "->setMinValue(" << entry->min << ");\n";
@@ -339,10 +316,15 @@ void KConfigSourceGenerator::createNormalEntry(const CfgEntry *entry, const QStr
         stream() << "  " << itemVarStr << "->setWriteFlags(KConfigBase::Notify);\n";
     }
 
-    for (const CfgEntry::Choice &choice : qAsConst(entry->choices.choices)) {
+    for (const CfgEntry::Choice &choice : std::as_const(entry->choices.choices)) {
         if (!choice.val.isEmpty()) {
-            stream() << "  " << itemVarStr << "->setValueForChoice(QStringLiteral( \"" << choice.name << "\" ), QStringLiteral( \"" << choice.val << "\" ));\n";
+            stream() << "  " << innerItemVarStr << "->setValueForChoice(QStringLiteral( \"" << choice.name << "\" ), QStringLiteral( \"" << choice.val
+                     << "\" ));\n";
         }
+    }
+
+    if (!entry->parentGroup.isEmpty()) {
+        stream() << "  " << itemVarStr << "->setGroup(cg" << QString(entry->group).remove(QRegularExpression(QStringLiteral("\\W"))) << ");\n";
     }
 
     stream() << "  addItem( " << itemVarStr;
@@ -354,25 +336,28 @@ void KConfigSourceGenerator::createNormalEntry(const CfgEntry *entry, const QStr
     stream() << " );\n";
 }
 
+// TODO : Some compiler option won't work or generate bogus settings file.
+// * Does not manage properly Notifiers=true kcfgc option for parameterized entries :
+// ** KConfigCompilerSignallingItem generated with wrong userData parameter (4th one).
+// ** setWriteFlags() is missing.
+// * Q_PROPERTY signal won't work
 void KConfigSourceGenerator::createIndexedEntry(const CfgEntry *entry, const QString &key)
 {
     for (int i = 0; i <= entry->paramMax; i++) {
         const QString argBracket = QStringLiteral("[%1]").arg(i);
         const QString innerItemVarStr = innerItemVar(entry, cfg()) + argBracket;
 
-        const QString defaultStr = !entry->paramDefaultValues[i].isEmpty()
-            ? entry->paramDefaultValues[i]
-            : !entry->defaultValue.isEmpty() ? paramString(entry->defaultValue, entry, i) : defaultValue(entry->type);
+        const QString defaultStr = !entry->paramDefaultValues[i].isEmpty() ? entry->paramDefaultValues[i]
+            : !entry->defaultValue.isEmpty()                               ? paramString(entry->defaultValue, entry, i)
+                                                                           : defaultValue(entry->type);
 
         if (!entry->signalList.isEmpty()) {
-            stream() << "  " << innerItemVarStr << " = "
-                     << newInnerItem(entry, paramString(key, entry, i), defaultStr, cfg(), argBracket) << '\n';
+            stream() << "  " << innerItemVarStr << " = " << newInnerItem(entry, paramString(key, entry, i), defaultStr, cfg(), argBracket) << '\n';
         }
 
         const QString itemVarStr = itemPath(entry, cfg()) + argBracket;
 
-        stream() << "  " << itemVarStr << " = "
-                 << newItem(entry, paramString(key, entry, i), defaultStr, cfg(), argBracket) << '\n';
+        stream() << "  " << itemVarStr << " = " << newItem(entry, paramString(key, entry, i), defaultStr, cfg(), argBracket) << '\n';
 
         if (!entry->min.isEmpty()) {
             stream() << "  " << innerItemVarStr << "->setMinValue(" << entry->min << ");\n";
@@ -381,9 +366,10 @@ void KConfigSourceGenerator::createIndexedEntry(const CfgEntry *entry, const QSt
             stream() << "  " << innerItemVarStr << "->setMaxValue(" << entry->max << ");\n";
         }
 
-        for (const CfgEntry::Choice &choice : qAsConst(entry->choices.choices)) {
+        for (const CfgEntry::Choice &choice : std::as_const(entry->choices.choices)) {
             if (!choice.val.isEmpty()) {
-                stream() << "  " << itemVarStr << "->setValueForChoice(QStringLiteral( \"" << choice.name << "\" ), QStringLiteral( \"" << choice.val << "\" ));\n";
+                stream() << "  " << innerItemVarStr << "->setValueForChoice(QStringLiteral( \"" << choice.name << "\" ), QStringLiteral( \"" << choice.val
+                         << "\" ));\n";
             }
         }
 
@@ -422,8 +408,23 @@ void KConfigSourceGenerator::handleCurrentGroupChange(const CfgEntry *entry)
     }
 
     mCurrentGroup = entry->group;
-    stream() << "  setCurrentGroup( " << paramString(mCurrentGroup, parseResult.parameters) << " );";
-    stream() << "\n\n";
+
+    if (!entry->parentGroup.isEmpty()) {
+        QString parentGroup = QString(entry->parentGroup).remove(QRegularExpression(QStringLiteral("\\W")));
+        if (!mConfigGroupList.contains(parentGroup)) {
+            stream() << "  KConfigGroup cg" << parentGroup << "(this->config(), " << paramString(entry->parentGroup, parseResult.parameters) << ");\n";
+            mConfigGroupList << parentGroup;
+        }
+        QString currentGroup = QString(mCurrentGroup).remove(QRegularExpression(QStringLiteral("\\W")));
+        if (!mConfigGroupList.contains(currentGroup)) {
+            stream() << "  KConfigGroup cg" << currentGroup << " = cg" << QString(entry->parentGroup).remove(QRegularExpression(QStringLiteral("\\W")))
+                     << ".group(" << paramString(mCurrentGroup, parseResult.parameters) << ");\n";
+            mConfigGroupList << currentGroup;
+        }
+    } else {
+        stream() << "  setCurrentGroup( " << paramString(mCurrentGroup, parseResult.parameters) << " );";
+        stream() << "\n\n";
+    }
 }
 
 void KConfigSourceGenerator::doConstructor()
@@ -460,13 +461,12 @@ void KConfigSourceGenerator::doConstructor()
         // this cast to base-class pointer-to-member is valid C++
         // https://stackoverflow.com/questions/4272909/is-it-safe-to-upcast-a-method-pointer-and-use-it-with-base-class-pointer/
         stream() << "  KConfigCompilerSignallingItem::NotifyFunction notifyFunction ="
-            << " static_cast<KConfigCompilerSignallingItem::NotifyFunction>(&"
-            << cfg().className << "::itemChanged);\n";
+                 << " static_cast<KConfigCompilerSignallingItem::NotifyFunction>(&" << cfg().className << "::itemChanged);\n";
 
         stream() << '\n';
     }
 
-    for (auto *entry : parseResult.entries) {
+    for (const auto *entry : std::as_const(parseResult.entries)) {
         handleCurrentGroupChange(entry);
 
         const QString key = paramString(entry->key, parseResult.parameters);
@@ -514,7 +514,8 @@ void KConfigSourceGenerator::createGetterDPointerMode(const CfgEntry *entry)
 void KConfigSourceGenerator::createImmutableGetterDPointerMode(const CfgEntry *entry)
 {
     stream() << whitespace() << "";
-    stream() << "bool " << " " << immutableFunction(entry->name, cfg().className) << "(";
+    stream() << "bool "
+             << " " << immutableFunction(entry->name, cfg().className) << "(";
     if (!entry->param.isEmpty()) {
         stream() << " " << cppType(entry->paramType) << " i ";
     }
@@ -559,8 +560,7 @@ void KConfigSourceGenerator::createItemGetterDPointerMode(const CfgEntry *entry)
         return;
     }
     stream() << '\n';
-    stream() << cfg().inherits << "::Item" << itemType(entry->type) << " *"
-        << getFunction(entry->name, cfg().className) << "Item(";
+    stream() << cfg().inherits << "::Item" << itemType(entry->type) << " *" << getFunction(entry->name, cfg().className) << "Item(";
     if (!entry->param.isEmpty()) {
         stream() << " " << cppType(entry->paramType) << " i ";
     }
@@ -577,7 +577,7 @@ void KConfigSourceGenerator::doGetterSetterDPointerMode()
     }
 
     // setters and getters go in Cpp if in dpointer mode
-    for (auto *entry : parseResult.entries) {
+    for (const auto *entry : std::as_const(parseResult.entries)) {
         createSetterDPointerMode(entry);
         createGetterDPointerMode(entry);
         createImmutableGetterDPointerMode(entry);
@@ -589,7 +589,7 @@ void KConfigSourceGenerator::doGetterSetterDPointerMode()
 void KConfigSourceGenerator::createDefaultValueGetterSetter()
 {
     // default value getters always go in Cpp
-    for (auto *entry : parseResult.entries) {
+    for (const auto *entry : std::as_const(parseResult.entries)) {
         QString n = entry->name;
         QString t = entry->type;
 
@@ -616,7 +616,10 @@ void KConfigSourceGenerator::createDestructor()
         stream() << "  delete d;\n";
     }
     if (cfg().singleton) {
-        stream() << "  s_global" << cfg().className << "()->q = nullptr;\n";
+        const QString qgs = QLatin1String("s_global") + cfg().className;
+        stream() << "  if (" << qgs << ".exists() && !" << qgs << ".isDestroyed()) {\n";
+        stream() << "    " << qgs << "()->q = nullptr;\n";
+        stream() << "  }\n";
     }
     endScope();
     stream() << '\n';
@@ -627,19 +630,21 @@ void KConfigSourceGenerator::createNonModifyingSignalsHelper()
     if (!parseResult.hasNonModifySignals) {
         return;
     }
-    stream() << "bool " << cfg().className << "::" << "usrSave()\n";
+    stream() << "bool " << cfg().className << "::"
+             << "usrSave()\n";
     startScope();
     stream() << "  const bool res = " << cfg().inherits << "::usrSave();\n";
     stream() << "  if (!res) return false;\n\n";
-    for (const Signal &signal : parseResult.signalList) {
+    for (const Signal &signal : std::as_const(parseResult.signalList)) {
         if (signal.modify) {
             continue;
         }
 
         stream() << "  if ( " << varPath(QStringLiteral("settingsChanged"), cfg()) << " & " << signalEnumName(signal.name) << " )\n";
         stream() << "    Q_EMIT " << signal.name << "(";
-        QList<Param>::ConstIterator it, itEnd = signal.arguments.constEnd();
-        for (it = signal.arguments.constBegin(); it != itEnd;) {
+        auto it = signal.arguments.cbegin();
+        const auto itEnd = signal.arguments.cend();
+        while (it != itEnd) {
             Param argument = *it;
             bool cast = false;
             if (cfg().useEnumTypes && argument.type == QLatin1String("Enum")) {
@@ -668,21 +673,24 @@ void KConfigSourceGenerator::createNonModifyingSignalsHelper()
     endScope();
 }
 
-void KConfigSourceGenerator::createSignalFlagsHandler() 
+void KConfigSourceGenerator::createSignalFlagsHandler()
 {
     if (parseResult.signalList.isEmpty()) {
         return;
     }
 
     stream() << '\n';
-    stream() << "void " << cfg().className << "::" << "itemChanged(quint64 flags) {\n";
-    if (parseResult.hasNonModifySignals)
+    stream() << "void " << cfg().className << "::"
+             << "itemChanged(quint64 flags) {\n";
+    if (parseResult.hasNonModifySignals) {
         stream() << "  " << varPath(QStringLiteral("settingsChanged"), cfg()) << " |= flags;\n";
+    }
 
-    if (!parseResult.signalList.isEmpty())
+    if (!parseResult.signalList.isEmpty()) {
         stream() << '\n';
+    }
 
-    for (const Signal &signal : parseResult.signalList) {
+    for (const Signal &signal : std::as_const(parseResult.signalList)) {
         if (signal.modify) {
             stream() << "  if ( flags & " << signalEnumName(signal.name) << " ) {\n";
             stream() << "    Q_EMIT " << signal.name << "();\n";
@@ -693,7 +701,8 @@ void KConfigSourceGenerator::createSignalFlagsHandler()
     stream() << "}\n";
 }
 
-void KConfigSourceGenerator::includeMoc() {
+void KConfigSourceGenerator::includeMoc()
+{
     const QString mocFileName = cfg().baseName + QStringLiteral(".moc");
 
     if (parseResult.signalList.count() || cfg().generateProperties) {

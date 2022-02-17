@@ -4,40 +4,26 @@
 #    Use optional GENERATE_MOC to generate moc if you use signals in your kcfg files.
 #    Use optional USE_RELATIVE_PATH to generate the classes in the build following the given
 #    relative path to the file.
+#    <target> must not be an alias.
 #
-# Copyright (c) 2006-2009 Alexander Neundorf, <neundorf@kde.org>
-# Copyright (c) 2006, 2007, Laurent Montel, <montel@kde.org>
-# Copyright (c) 2007 Matthias Kretz <kretz@kde.org>
+# SPDX-FileCopyrightText: 2006-2009 Alexander Neundorf <neundorf@kde.org>
+# SPDX-FileCopyrightText: 2006, 2007, Laurent Montel <montel@kde.org>
+# SPDX-FileCopyrightText: 2007 Matthias Kretz <kretz@kde.org>
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of the University nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+# SPDX-License-Identifier: BSD-3-Clause
 
 include(CMakeParseArguments)
 
 function (KCONFIG_ADD_KCFG_FILES _target_or_source_var)
    set(options GENERATE_MOC USE_RELATIVE_PATH)
    cmake_parse_arguments(ARG "${options}" "" "" ${ARGN})
+
+   if (TARGET ${_target_or_source_var})
+       get_target_property(aliased_target ${_target_or_source_var} ALIASED_TARGET)
+       if(aliased_target)
+           message(FATAL_ERROR "Target argument passed to kconfig_add_kcfg_files must not be an alias: ${_target_or_source_var}")
+       endif()
+   endif()
 
    set(sources)
    foreach (_current_FILE ${ARG_UNPARSED_ARGUMENTS})
@@ -118,12 +104,14 @@ function (KCONFIG_ADD_KCFG_FILES _target_or_source_var)
                           MAIN_DEPENDENCY ${_tmp_FILE}
                           DEPENDS ${_kcfg_FILE} KF5::kconfig_compiler)
 
-       set_source_files_properties(${_header_FILE} PROPERTIES SKIP_AUTOMOC ON)  # don't run automoc on this file
-       set_source_files_properties(${_src_FILE} PROPERTIES SKIP_AUTOMOC ON)  # don't run automoc on this file
+       set_source_files_properties(${_header_FILE} ${_src_FILE} PROPERTIES
+           SKIP_AUTOMOC ON
+           SKIP_AUTOUIC ON
+       )
 
        if(ARG_GENERATE_MOC)
           list(APPEND sources ${_moc_FILE})
-          qt5_generate_moc(${_header_FILE} ${_moc_FILE})
+          qt_generate_moc(${_header_FILE} ${_moc_FILE})
           set_property(SOURCE ${_src_FILE} APPEND PROPERTY OBJECT_DEPENDS ${_moc_FILE} )
        endif()
 

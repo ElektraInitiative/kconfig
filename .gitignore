@@ -20,7 +20,9 @@ random_seed
 CMakeLists.txt.user*
 *.unc-backup*
 .cmake/
-/cmake-build-debug/
-.idea/
-cmake-build-debug/src/kreadcon
-fig/CTestTestfile.cmake
+/.clang-format
+/compile_commands.json
+.clangd
+.idea
+/cmake-build*
+.cache

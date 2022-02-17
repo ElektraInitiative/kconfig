@@ -1,51 +1,37 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999-2000 Preston Brown <pbrown@kde.org>
-   Copyright (C) 1996-2000 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 1999-2000 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1996-2000 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
-#include <kconfigdata.h>
+#include "kconfigdata_p.h"
 
 QDebug operator<<(QDebug dbg, const KEntryKey &key)
 {
-    dbg.nospace() << "[" << key.mGroup << ", " << key.mKey << (key.bLocal ? " localized" : "") <<
-                  (key.bDefault ? " default" : "") << (key.bRaw ? " raw" : "") << "]";
+    dbg.nospace() << "[" << key.mGroup << ", " << key.mKey << (key.bLocal ? " localized" : "") << (key.bDefault ? " default" : "") << (key.bRaw ? " raw" : "")
+                  << "]";
     return dbg.space();
 }
 
 QDebug operator<<(QDebug dbg, const KEntry &entry)
 {
-    dbg.nospace() << "[" << entry.mValue << (entry.bDirty ? " dirty" : "") <<
-                  (entry.bGlobal ? " global" : "") << (entry.bImmutable ? " immutable" : "") <<
-                  (entry.bDeleted ? " deleted" : "") << (entry.bReverted ? " reverted" : "") <<
-                  (entry.bExpand ? " expand" : "") << "]";
+    dbg.nospace() << "[" << entry.mValue << (entry.bDirty ? " dirty" : "") << (entry.bGlobal ? " global" : "")
+                  << (entry.bOverridesGlobal ? " overrides global" : "") << (entry.bImmutable ? " immutable" : "") << (entry.bDeleted ? " deleted" : "")
+                  << (entry.bReverted ? " reverted" : "") << (entry.bExpand ? " expand" : "") << "]";
 
     return dbg.space();
 }
 
-QMap< KEntryKey, KEntry >::Iterator KEntryMap::findExactEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags)
+KEntryMapIterator KEntryMap::findExactEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags)
 {
     KEntryKey theKey(group, key, bool(flags & SearchLocalized), bool(flags & SearchDefaults));
     return find(theKey);
 }
 
-QMap< KEntryKey, KEntry >::Iterator KEntryMap::findEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags)
+KEntryMapIterator KEntryMap::findEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags)
 {
     KEntryKey theKey(group, key, false, bool(flags & SearchDefaults));
 
@@ -63,7 +49,7 @@ QMap< KEntryKey, KEntry >::Iterator KEntryMap::findEntry(const QByteArray &group
     return find(theKey);
 }
 
-QMap< KEntryKey, KEntry >::ConstIterator KEntryMap::findEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags) const
+KEntryMapConstIterator KEntryMap::constFindEntry(const QByteArray &group, const QByteArray &key, SearchFlags flags) const
 {
     KEntryKey theKey(group, key, false, bool(flags & SearchDefaults));
 
@@ -71,14 +57,15 @@ QMap< KEntryKey, KEntry >::ConstIterator KEntryMap::findEntry(const QByteArray &
     if (flags & SearchLocalized) {
         theKey.bLocal = true;
 
-        ConstIterator it = find(theKey);
-        if (it != constEnd()) {
+        auto it = constFind(theKey);
+        if (it != cend()) {
             return it;
         }
 
         theKey.bLocal = false;
     }
-    return find(theKey);
+
+    return constFind(theKey);
 }
 
 bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const QByteArray &value, KEntryMap::EntryOptions options)
@@ -108,19 +95,23 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
 
     if (it != end()) {
         if (it->bImmutable) {
-            return false;    // we cannot change this entry. Inherits group immutability.
+            return false; // we cannot change this entry. Inherits group immutability.
         }
         k = it.key();
         e = *it;
-        //qDebug() << "found existing entry for key" << k;
+        // qDebug() << "found existing entry for key" << k;
+        // If overridden entry is global and not default. And it's overridden by a non global
+        if (e.bGlobal && !(options & EntryGlobal) && !k.bDefault) {
+            e.bOverridesGlobal = true;
+        }
     } else {
         // make sure the group marker is in the map
         KEntryMap const *that = this;
-        ConstIterator cit = that->findEntry(group);
+        auto cit = that->constFindEntry(group);
         if (cit == constEnd()) {
             insert(KEntryKey(group), KEntry());
         } else if (cit->bImmutable) {
-            return false;    // this group is immutable, so we cannot change this entry.
+            return false; // this group is immutable, so we cannot change this entry.
         }
 
         k = KEntryKey(group, key);
@@ -136,14 +127,14 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
     e.bDirty = e.bDirty || (options & EntryDirty);
     e.bNotify = e.bNotify || (options & EntryNotify);
 
-    e.bGlobal = (options & EntryGlobal); //we can't use || here, because changes to entries in
-    //kdeglobals would be written to kdeglobals instead
-    //of the local config file, regardless of the globals flag
+    e.bGlobal = (options & EntryGlobal); // we can't use || here, because changes to entries in
+    // kdeglobals would be written to kdeglobals instead
+    // of the local config file, regardless of the globals flag
     e.bImmutable = e.bImmutable || (options & EntryImmutable);
     if (value.isNull()) {
         e.bDeleted = e.bDeleted || (options & EntryDeleted);
     } else {
-        e.bDeleted = false;    // setting a value to a previously deleted entry
+        e.bDeleted = false; // setting a value to a previously deleted entry
     }
     e.bExpand = (options & EntryExpansion);
     e.bReverted = false;
@@ -154,17 +145,17 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
     }
 
     if (newKey) {
-        //qDebug() << "inserting" << k << "=" << value;
+        // qDebug() << "inserting" << k << "=" << value;
         insert(k, e);
         if (k.bDefault) {
             k.bDefault = false;
-            //qDebug() << "also inserting" << k << "=" << value;
+            // qDebug() << "also inserting" << k << "=" << value;
             insert(k, e);
         }
         // TODO check for presence of unlocalized key
         return true;
     } else {
-//                KEntry e2 = it.value();
+        //                KEntry e2 = it.value();
         if (options & EntryLocalized) {
             // fast exit checks for cases where the existing entry is more specific
             const KEntry &e2 = it.value();
@@ -174,7 +165,7 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
             }
         }
         if (it.value() != e) {
-            //qDebug() << "changing" << k << "from" << e.mValue << "to" << value;
+            // qDebug() << "changing" << k << "from" << it.value().mValue << "to" << value << e;
             it.value() = e;
             if (k.bDefault) {
                 KEntryKey nonDefaultKey(k);
@@ -183,7 +174,7 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
             }
             if (!(options & EntryLocalized)) {
                 KEntryKey theKey(group, key, true, false);
-                //qDebug() << "non-localized entry, remove localized one:" << theKey;
+                // qDebug() << "non-localized entry, remove localized one:" << theKey;
                 remove(theKey);
                 if (k.bDefault) {
                     theKey.bDefault = true;
@@ -192,9 +183,9 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
             }
             return true;
         } else {
-            //qDebug() << k << "was already set to" << e.mValue;
+            // qDebug() << k << "was already set to" << e.mValue;
             if (!(options & EntryLocalized)) {
-                //qDebug() << "unchanged non-localized entry, remove localized one.";
+                // qDebug() << "unchanged non-localized entry, remove localized one.";
                 KEntryKey theKey(group, key, true, false);
                 bool ret = false;
                 Iterator cit = find(theKey);
@@ -212,7 +203,7 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
                 }
                 return ret;
             }
-            //qDebug() << "localized entry, unchanged, return false";
+            // qDebug() << "localized entry, unchanged, return false";
             // When we are writing a default, we know that the non-
             // default is the same as the default, so we can simply
             // use the same branch.
@@ -223,7 +214,7 @@ bool KEntryMap::setEntry(const QByteArray &group, const QByteArray &key, const Q
 
 QString KEntryMap::getEntry(const QByteArray &group, const QByteArray &key, const QString &defaultValue, KEntryMap::SearchFlags flags, bool *expand) const
 {
-    const ConstIterator it = findEntry(group, key, flags);
+    const auto it = constFindEntry(group, key, flags);
     QString theValue = defaultValue;
 
     if (it != constEnd() && !it->bDeleted) {
@@ -241,7 +232,7 @@ QString KEntryMap::getEntry(const QByteArray &group, const QByteArray &key, cons
 
 bool KEntryMap::hasEntry(const QByteArray &group, const QByteArray &key, KEntryMap::SearchFlags flags) const
 {
-    const ConstIterator it = findEntry(group, key, flags);
+    const auto it = constFindEntry(group, key, flags);
     if (it == constEnd()) {
         return false;
     }
@@ -255,7 +246,7 @@ bool KEntryMap::hasEntry(const QByteArray &group, const QByteArray &key, KEntryM
     return true;
 }
 
-bool KEntryMap::getEntryOption(const QMap< KEntryKey, KEntry >::ConstIterator &it, KEntryMap::EntryOption option) const
+bool KEntryMap::getEntryOption(const KEntryMapConstIterator &it, KEntryMap::EntryOption option) const
 {
     if (it != constEnd()) {
         switch (option) {
@@ -281,7 +272,7 @@ bool KEntryMap::getEntryOption(const QMap< KEntryKey, KEntry >::ConstIterator &i
     return false;
 }
 
-void KEntryMap::setEntryOption(QMap< KEntryKey, KEntry >::Iterator it, KEntryMap::EntryOption option, bool bf)
+void KEntryMap::setEntryOption(KEntryMapIterator it, KEntryMap::EntryOption option, bool bf)
 {
     if (it != end()) {
         switch (option) {
@@ -314,18 +305,18 @@ bool KEntryMap::revertEntry(const QByteArray &group, const QByteArray &key, KEnt
     Q_ASSERT((flags & KEntryMap::SearchDefaults) == 0);
     Iterator entry = findEntry(group, key, flags);
     if (entry != end()) {
-        //qDebug() << "reverting" << entry.key() << " = " << entry->mValue;
+        // qDebug() << "reverting" << entry.key() << " = " << entry->mValue;
         if (entry->bReverted) { // already done before
             return false;
         }
 
         KEntryKey defaultKey(entry.key());
         defaultKey.bDefault = true;
-        //qDebug() << "looking up default entry with key=" << defaultKey;
-        const ConstIterator defaultEntry = constFind(defaultKey);
+        // qDebug() << "looking up default entry with key=" << defaultKey;
+        const auto defaultEntry = constFind(defaultKey);
         if (defaultEntry != constEnd()) {
             Q_ASSERT(defaultEntry.key().bDefault);
-            //qDebug() << "found, update entry";
+            // qDebug() << "found, update entry";
             *entry = *defaultEntry; // copy default value, for subsequent lookups
         } else {
             entry->mValue = QByteArray();
@@ -334,7 +325,7 @@ bool KEntryMap::revertEntry(const QByteArray &group, const QByteArray &key, KEnt
         entry->bDirty = true;
         entry->bReverted = true; // skip it when writing out to disk
 
-        //qDebug() << "Here's what we have now:" << *this;
+        // qDebug() << "Here's what we have now:" << *this;
         return true;
     }
     return false;

@@ -172,12 +172,31 @@ target_link_libraries(test13 KF5::ConfigGui)
 
 ########### next target ###############
 
+set(test_state_config_SRCS test_state_config_main.cpp)
+
+gen_kcfg_test_source(test_state_config test_state_config_SRCS GENERATE_MOC)
+
+ecm_add_test(TEST_NAME test_state_config ${test_state_config_SRCS})
+target_link_libraries(test_state_config KF5::ConfigGui Qt${QT_MAJOR_VERSION}::Test)
+
+########### next target ###############
+
 set(test_emptyentries_SRCS test_emptyentries_main.cpp )
 
 gen_kcfg_test_source(test_emptyentries test_emptyentries_SRCS GENERATE_MOC)
 
 ecm_add_test(TEST_NAME test_emptyentries ${test_emptyentries_SRCS})
 target_link_libraries(test_emptyentries KF5::ConfigGui)
+
+########### next target ###############
+
+set(test_subgroups_SRCS test_subgroups_main.cpp )
+
+gen_kcfg_test_source(test_subgroups test_subgroups_SRCS GENERATE_MOC)
+
+ecm_add_test(TEST_NAME test_subgroups ${test_subgroups_SRCS})
+target_link_libraries(test_subgroups KF5::ConfigGui)
+
 
 ########### next target ###############
 
@@ -215,7 +234,7 @@ gen_kcfg_test_source(signals_test_no_singleton_dpointer kconfigcompiler_test_sig
 
 ecm_add_test(${kconfigcompiler_test_signals_SRCS}
     TEST_NAME kconfigcompiler-signals-test
-    LINK_LIBRARIES Qt5::Test KF5::ConfigGui
+    LINK_LIBRARIES Qt${QT_MAJOR_VERSION}::Test KF5::ConfigGui
 )
 
 ########### next target ###############
@@ -242,7 +261,7 @@ ecm_add_test(${test_param_minmax_SRCS}
 
 ecm_add_test(kconfigcompiler_test.cpp
     TEST_NAME kconfigcompiler-basic-test
-    LINK_LIBRARIES Qt5::Test
+    LINK_LIBRARIES Qt${QT_MAJOR_VERSION}::Test
 )
 
 
@@ -284,3 +303,11 @@ gen_kcfg_test_source(test_fileextensions test_fileextensions_SRCS)
 
 ecm_add_test(TEST_NAME test_fileextensions ${test_fileextensions_SRCS})
 target_link_libraries(test_fileextensions KF5::ConfigGui)
+
+
+####### next target ##########
+## If this to compiles, we are sure that the generation is correct.
+set(test_enums_and_properties_SRCS enum_group_main.cpp)
+gen_kcfg_test_source(test_enums_and_properties test_enums_and_properties_SRCS GENERATE_MOC)
+ecm_add_test(TEST_NAME test_enums_and_properties ${test_enums_and_properties_SRCS})
+target_link_libraries(test_enums_and_properties KF5::ConfigGui)

@@ -1,23 +1,10 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (c) 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kconfig.h"
@@ -32,29 +19,46 @@
 #include "kconfigbackend_p.h"
 #include "kconfiggroup.h"
 
-#include <qcoreapplication.h>
-#include <qprocess.h>
-#include <qstandardpaths.h>
-#include <qbytearray.h>
-#include <qfile.h>
-#include <qlocale.h>
-#include <qdir.h>
+#include <QBasicMutex>
+#include <QByteArray>
+#include <QCache>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QLocale>
+#include <QMutexLocker>
 #include <QProcess>
 #include <QSet>
-#include <QBasicMutex>
-#include <QMutexLocker>
+#include <QThreadStorage>
+
+#include <algorithm>
+#include <iterator>
+#include <set>
+#include <string_view>
+#include <unordered_set>
 
 #if KCONFIG_USE_DBUS
-#include <QDBusMessage>
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDBusMetaType>
 #endif
 
 bool KConfigPrivate::mappingsRegistered = false;
 
+// For caching purposes
+static bool s_wasTestModeEnabled = false;
+
 Q_GLOBAL_STATIC(QStringList, s_globalFiles) // For caching purposes.
 static QBasicMutex s_globalFilesMutex;
 Q_GLOBAL_STATIC_WITH_ARGS(QString, sGlobalFileName, (QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String("/kdeglobals")))
+
+using ParseCacheKey = std::pair<QStringList, QString>;
+struct ParseCacheValue {
+    KEntryMap entries;
+    QDateTime parseTime;
+};
+using ParseCache = QThreadStorage<QCache<ParseCacheKey, ParseCacheValue>>;
+Q_GLOBAL_STATIC(ParseCache, sGlobalParse)
 
 #ifndef Q_OS_WIN
 static const Qt::CaseSensitivity sPathCaseSensitivity = Qt::CaseSensitive;
@@ -62,25 +66,31 @@ static const Qt::CaseSensitivity sPathCaseSensitivity = Qt::CaseSensitive;
 static const Qt::CaseSensitivity sPathCaseSensitivity = Qt::CaseInsensitive;
 #endif
 
-KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
-                               QStandardPaths::StandardLocation resourceType)
-    : openFlags(flags), resourceType(resourceType), mBackend(nullptr),
-      bDynamicBackend(true),  bDirty(false), bReadDefaults(false),
-      bFileImmutable(false), bForceGlobal(false), bSuppressGlobal(false),
-      configState(KConfigBase::NoAccess)
+KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags, QStandardPaths::StandardLocation resourceType)
+    : openFlags(flags)
+    , resourceType(resourceType)
+    , mBackend(nullptr)
+    , bDynamicBackend(true)
+    , bDirty(false)
+    , bReadDefaults(false)
+    , bFileImmutable(false)
+    , bForceGlobal(false)
+    , bSuppressGlobal(false)
+    , configState(KConfigBase::NoAccess)
 {
-    static QBasicAtomicInt use_etc_kderc = Q_BASIC_ATOMIC_INITIALIZER(-1);
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-    if (use_etc_kderc.load() < 0) {
-        use_etc_kderc.store(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));     // for unit tests
+    const bool isTestMode = QStandardPaths::isTestModeEnabled();
+    // If sGlobalFileName was initialised and testMode has been toggled,
+    // sGlobalFileName may need to be updated to point to the correct kdeglobals file
+    if (sGlobalFileName.exists() && s_wasTestModeEnabled != isTestMode) {
+        s_wasTestModeEnabled = isTestMode;
+        *sGlobalFileName = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String("/kdeglobals");
     }
-    if (use_etc_kderc.load()) {
-#else
+
+    static QBasicAtomicInt use_etc_kderc = Q_BASIC_ATOMIC_INITIALIZER(-1);
     if (use_etc_kderc.loadRelaxed() < 0) {
-        use_etc_kderc.storeRelaxed( !qEnvironmentVariableIsSet("KDE_SKIP_KDERC"));    // for unit tests
+        use_etc_kderc.storeRelaxed(!qEnvironmentVariableIsSet("KDE_SKIP_KDERC")); // for unit tests
     }
     if (use_etc_kderc.loadRelaxed()) {
-#endif
         etc_kderc =
 #ifdef Q_OS_WIN
             QFile::decodeName(qgetenv("WINDIR") + "/kde5rc");
@@ -97,20 +107,20 @@ KConfigPrivate::KConfigPrivate(KConfig::OpenFlags flags,
         }
     }
 
-//    if (!mappingsRegistered) {
-//        KEntryMap tmp;
-//        if (!etc_kderc.isEmpty()) {
-//            QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(etc_kderc, QLatin1String("INI"));
-//            backend->parseConfig( "en_US", tmp, KConfigBackend::ParseDefaults);
-//        }
-//        const QString kde5rc(QDir::home().filePath(".kde5rc"));
-//        if (KStandardDirs::checkAccess(kde5rc, R_OK)) {
-//            QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(kde5rc, QLatin1String("INI"));
-//            backend->parseConfig( "en_US", tmp, KConfigBackend::ParseOptions());
-//        }
-//        KConfigBackend::registerMappings(tmp);
-//        mappingsRegistered = true;
-//    }
+    //    if (!mappingsRegistered) {
+    //        KEntryMap tmp;
+    //        if (!etc_kderc.isEmpty()) {
+    //            QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(etc_kderc, QLatin1String("INI"));
+    //            backend->parseConfig( "en_US", tmp, KConfigBackend::ParseDefaults);
+    //        }
+    //        const QString kde5rc(QDir::home().filePath(".kde5rc"));
+    //        if (KStandardDirs::checkAccess(kde5rc, R_OK)) {
+    //            QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(kde5rc, QLatin1String("INI"));
+    //            backend->parseConfig( "en_US", tmp, KConfigBackend::ParseOptions());
+    //        }
+    //        KConfigBackend::registerMappings(tmp);
+    //        mappingsRegistered = true;
+    //    }
 
     setLocale(QLocale().name());
 }
@@ -124,28 +134,27 @@ bool KConfigPrivate::lockLocal()
     return true;
 }
 
-void KConfigPrivate::copyGroup(const QByteArray &source, const QByteArray &destination,
-                               KConfigGroup *otherGroup, KConfigBase::WriteConfigFlags flags) const
+static bool isGroupOrSubGroupMatch(KEntryMapConstIterator entryMapIt, const QByteArray &group)
+{
+    const QByteArray &entryGroup = entryMapIt.key().mGroup;
+    Q_ASSERT_X(entryGroup.startsWith(group), Q_FUNC_INFO, "Precondition");
+    return entryGroup.size() == group.size() || entryGroup[group.size()] == '\x1d';
+}
+
+void KConfigPrivate::copyGroup(const QByteArray &source, const QByteArray &destination, KConfigGroup *otherGroup, KConfigBase::WriteConfigFlags flags) const
 {
     KEntryMap &otherMap = otherGroup->config()->d_ptr->entryMap;
-    const int len = source.length();
     const bool sameName = (destination == source);
 
-    // we keep this bool outside the foreach loop so that if
+    // we keep this bool outside the for loop so that if
     // the group is empty, we don't end up marking the other config
     // as dirty erroneously
     bool dirtied = false;
 
-    for (KEntryMap::ConstIterator entryMapIt(entryMap.constBegin()); entryMapIt != entryMap.constEnd(); ++entryMapIt) {
-        const QByteArray &group = entryMapIt.key().mGroup;
-
-        if (!group.startsWith(source)) { // nothing to do
-            continue;
-        }
-
+    entryMap.forEachEntryWhoseGroupStartsWith(source, [&source, &destination, flags, &otherMap, sameName, &dirtied](KEntryMapConstIterator entryMapIt) {
         // don't copy groups that start with the same prefix, but are not sub-groups
-        if (group.length() > len && group[len] != '\x1d') {
-            continue;
+        if (!isGroupOrSubGroupMatch(entryMapIt, source)) {
+            return;
         }
 
         KEntryKey newKey = entryMapIt.key();
@@ -155,18 +164,22 @@ void KConfigPrivate::copyGroup(const QByteArray &source, const QByteArray &desti
         }
 
         if (!sameName) {
-            newKey.mGroup.replace(0, len, destination);
+            newKey.mGroup.replace(0, source.size(), destination);
         }
 
-        KEntry entry = entryMap[ entryMapIt.key() ];
+        KEntry entry = entryMapIt.value();
         dirtied = entry.bDirty = flags & KConfigBase::Persistent;
 
         if (flags & KConfigBase::Global) {
             entry.bGlobal = true;
         }
 
+        if (flags & KConfigBase::Notify) {
+            entry.bNotify = true;
+        }
+
         otherMap[newKey] = entry;
-    }
+    });
 
     if (dirtied) {
         otherGroup->config()->d_ptr->bDirty = true;
@@ -181,24 +194,21 @@ QString KConfigPrivate::expandString(const QString &value)
     int nDollarPos = aValue.indexOf(QLatin1Char('$'));
     while (nDollarPos != -1 && nDollarPos + 1 < aValue.length()) {
         // there is at least one $
-        if (aValue[nDollarPos + 1] != QLatin1Char('$')) {
+        if (aValue.at(nDollarPos + 1) != QLatin1Char('$')) {
             int nEndPos = nDollarPos + 1;
             // the next character is not $
-            QStringRef aVarName;
-            if (aValue[nEndPos] == QLatin1Char('{')) {
+            QStringView aVarName;
+            if (aValue.at(nEndPos) == QLatin1Char('{')) {
                 while ((nEndPos <= aValue.length()) && (aValue[nEndPos] != QLatin1Char('}'))) {
-                    nEndPos++;
+                    ++nEndPos;
                 }
-                nEndPos++;
-                aVarName = aValue.midRef(nDollarPos + 2, nEndPos - nDollarPos - 3);
+                ++nEndPos;
+                aVarName = QStringView(aValue).mid(nDollarPos + 2, nEndPos - nDollarPos - 3);
             } else {
-                while (nEndPos <= aValue.length() &&
-                       (aValue[nEndPos].isNumber() ||
-                        aValue[nEndPos].isLetter() ||
-                        aValue[nEndPos] == QLatin1Char('_'))) {
-                    nEndPos++;
+                while (nEndPos < aValue.length() && (aValue[nEndPos].isNumber() || aValue[nEndPos].isLetter() || aValue[nEndPos] == QLatin1Char('_'))) {
+                    ++nEndPos;
                 }
-                aVarName = aValue.midRef(nDollarPos + 1, nEndPos - nDollarPos - 1);
+                aVarName = QStringView(aValue).mid(nDollarPos + 1, nEndPos - nDollarPos - 1);
             }
             QString env;
             if (!aVarName.isEmpty()) {
@@ -229,7 +239,7 @@ QString KConfigPrivate::expandString(const QString &value)
         } else {
             // remove one of the dollar signs
             aValue.remove(nDollarPos, 1);
-            nDollarPos++;
+            ++nDollarPos;
         }
         nDollarPos = aValue.indexOf(QLatin1Char('$'), nDollarPos);
     }
@@ -237,8 +247,7 @@ QString KConfigPrivate::expandString(const QString &value)
     return aValue;
 }
 
-KConfig::KConfig(const QString &file, OpenFlags mode,
-                 QStandardPaths::StandardLocation resourceType)
+KConfig::KConfig(const QString &file, OpenFlags mode, QStandardPaths::StandardLocation resourceType)
     : d_ptr(new KConfigPrivate(mode, resourceType))
 {
     d_ptr->changeFileName(file); // set the local file name
@@ -266,100 +275,107 @@ KConfig::KConfig(KConfigPrivate &d)
 KConfig::~KConfig()
 {
     Q_D(KConfig);
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-    if (d->bDirty && (d->mBackend && d->mBackend->ref.load() == 1)) {
-#else
     if (d->bDirty && (d->mBackend && d->mBackend->ref.loadRelaxed() == 1)) {
-#endif
         sync();
     }
     delete d;
 }
 
+static bool isNonDeletedKey(KEntryMapConstIterator entryMapIt)
+{
+    return !entryMapIt.key().mKey.isNull() && !entryMapIt->bDeleted;
+}
+
+static int findFirstGroupEndPos(const QByteArray &groupFullName, int from = 0)
+{
+    const auto index = groupFullName.indexOf('\x1d', from);
+    return index == -1 ? groupFullName.size() : index;
+}
+
+// std::string_view is used because QByteArrayView does not exist in Qt 5.
+// std::unordered_set rather than QSet is used because there is no qHash() overload for std::string_view in Qt 5.
+using ByteArrayViewSet = std::unordered_set<std::string_view>;
+
+static QStringList stringListFromUtf8Collection(const ByteArrayViewSet &source)
+{
+    QStringList list;
+    list.reserve(source.size());
+    std::transform(source.cbegin(), source.cend(), std::back_inserter(list), [](std::string_view view) {
+        return QString::fromUtf8(view.data(), view.size());
+    });
+    return list;
+}
+
 QStringList KConfig::groupList() const
 {
     Q_D(const KConfig);
-    QSet<QString> groups;
+    ByteArrayViewSet groups;
 
-    for (KEntryMap::ConstIterator entryMapIt(d->entryMap.constBegin()); entryMapIt != d->entryMap.constEnd(); ++entryMapIt) {
-        const KEntryKey &key = entryMapIt.key();
-        const QByteArray group = key.mGroup;
-        if (key.mKey.isNull() && !group.isEmpty() && group != "<default>" && group != "$Version") {
-            const QString groupname = QString::fromUtf8(group);
-            groups << groupname.left(groupname.indexOf(QLatin1Char('\x1d')));
+    for (auto entryMapIt = d->entryMap.cbegin(); entryMapIt != d->entryMap.cend(); ++entryMapIt) {
+        const QByteArray &group = entryMapIt.key().mGroup;
+        if (isNonDeletedKey(entryMapIt) && !group.isEmpty() && group != "<default>" && group != "$Version") {
+            groups.emplace(group.constData(), findFirstGroupEndPos(group));
         }
     }
 
-    return groups.values();
+    return stringListFromUtf8Collection(groups);
 }
 
 QStringList KConfigPrivate::groupList(const QByteArray &group) const
 {
-    QByteArray theGroup = group + '\x1d';
-    QSet<QString> groups;
+    const QByteArray theGroup = group + '\x1d';
+    ByteArrayViewSet groups;
 
-    for (KEntryMap::ConstIterator entryMapIt(entryMap.constBegin()); entryMapIt != entryMap.constEnd(); ++entryMapIt) {
-        const KEntryKey &key = entryMapIt.key();
-        if (key.mKey.isNull() && key.mGroup.startsWith(theGroup)) {
-            const QString groupname = QString::fromUtf8(key.mGroup.mid(theGroup.length()));
-            groups << groupname.left(groupname.indexOf(QLatin1Char('\x1d')));
+    entryMap.forEachEntryWhoseGroupStartsWith(theGroup, [&theGroup, &groups](KEntryMapConstIterator entryMapIt) {
+        if (isNonDeletedKey(entryMapIt)) {
+            const QByteArray &entryGroup = entryMapIt.key().mGroup;
+            const auto subgroupStartPos = theGroup.size();
+            const auto subgroupEndPos = findFirstGroupEndPos(entryGroup, subgroupStartPos);
+            groups.emplace(entryGroup.constData() + subgroupStartPos, subgroupEndPos - subgroupStartPos);
         }
-    }
+    });
 
-    return groups.values();
+    return stringListFromUtf8Collection(groups);
 }
 
-static bool isGroupOrSubGroupMatch(const QByteArray &potentialGroup, const QByteArray &group)
-{
-    if (!potentialGroup.startsWith(group)) {
-        return false;
-    }
-    return potentialGroup.length() == group.length() || potentialGroup[group.length()] == '\x1d';
-}
-
-// List all sub groups, including subsubgroups
+/// Returns @p parentGroup itself, all its subgroups, subsubgroups, and so on, including deleted groups.
 QSet<QByteArray> KConfigPrivate::allSubGroups(const QByteArray &parentGroup) const
 {
     QSet<QByteArray> groups;
 
-    for (KEntryMap::const_iterator entryMapIt = entryMap.begin(); entryMapIt != entryMap.end(); ++entryMapIt) {
+    entryMap.forEachEntryWhoseGroupStartsWith(parentGroup, [&parentGroup, &groups](KEntryMapConstIterator entryMapIt) {
         const KEntryKey &key = entryMapIt.key();
-        if (key.mKey.isNull() && isGroupOrSubGroupMatch(key.mGroup, parentGroup)) {
+        if (key.mKey.isNull() && isGroupOrSubGroupMatch(entryMapIt, parentGroup)) {
             groups << key.mGroup;
         }
-    }
+    });
+
     return groups;
 }
 
 bool KConfigPrivate::hasNonDeletedEntries(const QByteArray &group) const
 {
-    for (KEntryMap::const_iterator it = entryMap.begin(); it != entryMap.end(); ++it) {
-        const KEntryKey &key = it.key();
-        // Check for any non-deleted entry
-        if (isGroupOrSubGroupMatch(key.mGroup, group) && !key.mKey.isNull() && !it->bDeleted) {
-            return true;
-        }
-    }
-    return false;
+    return entryMap.anyEntryWhoseGroupStartsWith(group, [&group](KEntryMapConstIterator entryMapIt) {
+        return isGroupOrSubGroupMatch(entryMapIt, group) && isNonDeletedKey(entryMapIt);
+    });
 }
 
 QStringList KConfigPrivate::keyListImpl(const QByteArray &theGroup) const
 {
     QStringList keys;
 
-    const KEntryMapConstIterator theEnd = entryMap.constEnd();
-    KEntryMapConstIterator it = entryMap.findEntry(theGroup);
+    const auto theEnd = entryMap.constEnd();
+    auto it = entryMap.constFindEntry(theGroup);
     if (it != theEnd) {
         ++it; // advance past the special group entry marker
 
-        QSet<QString> tmp;
+        std::set<QString> tmp; // unique set, sorted for unittests
         for (; it != theEnd && it.key().mGroup == theGroup; ++it) {
-            const KEntryKey &key = it.key();
-            if (!key.mKey.isNull() && !it->bDeleted) {
-                tmp << QString::fromUtf8(key.mKey);
+            if (isNonDeletedKey(it)) {
+                tmp.insert(QString::fromUtf8(it.key().mKey));
             }
         }
-        keys = tmp.values();
+        keys = QList<QString>(tmp.begin(), tmp.end());
     }
 
     return keys;
@@ -378,8 +394,8 @@ QMap<QString, QString> KConfig::entryMap(const QString &aGroup) const
     QMap<QString, QString> theMap;
     const QByteArray theGroup(aGroup.isEmpty() ? "<default>" : aGroup.toUtf8());
 
-    const KEntryMapConstIterator theEnd = d->entryMap.constEnd();
-    KEntryMapConstIterator it = d->entryMap.findEntry(theGroup, {}, {});
+    const auto theEnd = d->entryMap.constEnd();
+    auto it = d->entryMap.constFindEntry(theGroup, {}, {});
     if (it != theEnd) {
         ++it; // advance past the special group entry marker
 
@@ -455,7 +471,7 @@ bool KConfig::sync()
             if (d->configState == ReadWrite && !tmp->lock()) {
                 qCWarning(KCONFIG_CORE_LOG) << "couldn't lock global file";
 
-                //unlock the local config if we're returning early
+                // unlock the local config if we're returning early
                 if (d->mBackend->isLocked()) {
                     d->mBackend->unlock();
                 }
@@ -498,9 +514,7 @@ void KConfigPrivate::notifyClients(const QHash<QString, QByteArrayList> &changes
 
     qDBusRegisterMetaType<QHash<QString, QByteArrayList>>();
 
-    QDBusMessage message = QDBusMessage::createSignal(path,
-                           QStringLiteral("org.kde.kconfig.notify"),
-                           QStringLiteral("ConfigChanged"));
+    QDBusMessage message = QDBusMessage::createSignal(path, QStringLiteral("org.kde.kconfig.notify"), QStringLiteral("ConfigChanged"));
     message.setArguments({QVariant::fromValue(changes)});
     QDBusConnection::sessionBus().send(message);
 #else
@@ -534,7 +548,7 @@ void KConfig::checkUpdate(const QString &id, const QString &updateFile)
     const QString cfg_id = updateFile + QLatin1Char(':') + id;
     const QStringList ids = cg.readEntry("update_info", QStringList());
     if (!ids.contains(cfg_id)) {
-        QProcess::execute(QStringLiteral(KCONF_UPDATE_INSTALL_LOCATION), QStringList { QStringLiteral("--check"), updateFile });
+        QProcess::execute(QStringLiteral(KCONF_UPDATE_INSTALL_LOCATION), QStringList{QStringLiteral("--check"), updateFile});
         reparseConfiguration();
     }
 }
@@ -564,7 +578,6 @@ QString KConfig::name() const
     return d->fileName;
 }
 
-
 KConfig::OpenFlags KConfig::openFlags() const
 {
     Q_D(const KConfig);
@@ -591,9 +604,10 @@ void KConfig::setMainConfigName(const QString &str)
 #ifndef FEAT_ELEKTRA
 QString KConfig::mainConfigName()
 {
-    KConfigStaticData* data = globalData();
-    if (data->appArgs.isEmpty())
+    KConfigStaticData *data = globalData();
+    if (data->appArgs.isEmpty()) {
         data->appArgs = QCoreApplication::arguments();
+    }
 
     // --config on the command line overrides everything else
     const QStringList args = data->appArgs;
@@ -852,22 +866,41 @@ QStringList KConfigPrivate::getGlobalFiles() const
 void KConfigPrivate::parseGlobalFiles()
 {
     const QStringList globalFiles = getGlobalFiles();
-//    qDebug() << "parsing global files" << globalFiles;
+    //    qDebug() << "parsing global files" << globalFiles;
 
-    // TODO: can we cache the values in etc_kderc / other global files
-    //       on a per-application basis?
+    Q_ASSERT(entryMap.isEmpty());
+    const ParseCacheKey key = {globalFiles, locale};
+    auto data = sGlobalParse->localData().object(key);
+    QDateTime newest;
+    for (const auto &file : globalFiles) {
+        const auto fileDate = QFileInfo(file).lastModified();
+        if (fileDate > newest) {
+            newest = fileDate;
+        }
+    }
+    if (data) {
+        if (data->parseTime < newest) {
+            data = nullptr;
+        } else {
+            entryMap = data->entries;
+            return;
+        }
+    }
+
     const QByteArray utf8Locale = locale.toUtf8();
     for (const QString &file : globalFiles) {
         KConfigBackend::ParseOptions parseOpts = KConfigBackend::ParseGlobal | KConfigBackend::ParseExpansions;
 
-        if (file.compare(*sGlobalFileName, sPathCaseSensitivity) != 0)
+        if (file.compare(*sGlobalFileName, sPathCaseSensitivity) != 0) {
             parseOpts |= KConfigBackend::ParseDefaults;
+        }
 
         QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(file);
         if (backend->parseConfig(utf8Locale, entryMap, parseOpts) == KConfigBackend::ParseImmutable) {
             break;
         }
     }
+    sGlobalParse->localData().insert(key, new ParseCacheValue({entryMap, newest}));
 }
 #else
 void KConfigPrivate::parseGlobalFiles()
@@ -912,13 +945,13 @@ void KConfigPrivate::parseConfigFiles()
             files << mBackend->filePath();
         }
         if (!isSimple()) {
-            files = extraFiles.toList() + files;
+            files = QList<QString>(extraFiles.cbegin(), extraFiles.cend()) + files;
         }
 
-//        qDebug() << "parsing local files" << files;
+        //        qDebug() << "parsing local files" << files;
 
         const QByteArray utf8Locale = locale.toUtf8();
-        for (const QString &file : qAsConst(files)) {
+        for (const QString &file : std::as_const(files)) {
             if (file.compare(mBackend->filePath(), sPathCaseSensitivity) == 0) {
                 switch (mBackend->parseConfig(utf8Locale, entryMap, KConfigBackend::ParseExpansions)) {
                 case KConfigBackend::ParseOk:
@@ -932,9 +965,8 @@ void KConfigPrivate::parseConfigFiles()
                 }
             } else {
                 QExplicitlySharedDataPointer<KConfigBackend> backend = KConfigBackend::create(file);
-                bFileImmutable = (backend->parseConfig(utf8Locale, entryMap,
-                                                       KConfigBackend::ParseDefaults | KConfigBackend::ParseExpansions)
-                                  == KConfigBackend::ParseImmutable);
+                constexpr auto parseOpts = KConfigBackend::ParseDefaults | KConfigBackend::ParseExpansions;
+                bFileImmutable = backend->parseConfig(utf8Locale, entryMap, parseOpts) == KConfigBackend::ParseImmutable;
             }
 
             if (bFileImmutable) {
@@ -1014,7 +1046,7 @@ bool KConfig::isImmutable() const
 bool KConfig::isGroupImmutableImpl(const QByteArray &aGroup) const
 {
     Q_D(const KConfig);
-    return isImmutable() || d->entryMap.getEntryOption(aGroup, {},{}, KEntryMap::EntryImmutable);
+    return isImmutable() || d->entryMap.getEntryOption(aGroup, {}, {}, KEntryMap::EntryImmutable);
 }
 
 #if KCONFIGCORE_BUILD_DEPRECATED_SINCE(4, 0)
@@ -1095,13 +1127,11 @@ bool KConfig::isConfigWritable(bool warnUser)
         errorMsg += QCoreApplication::translate("KConfig", "Please contact your system administrator.");
         QString cmdToExec = QStandardPaths::findExecutable(QStringLiteral("kdialog"));
         if (!cmdToExec.isEmpty()) {
-            QProcess::execute(cmdToExec, QStringList()
-                              << QStringLiteral("--title") << QCoreApplication::applicationName()
-                              << QStringLiteral("--msgbox") << errorMsg);
+            QProcess::execute(cmdToExec, QStringList{QStringLiteral("--title"), QCoreApplication::applicationName(), QStringLiteral("--msgbox"), errorMsg});
         }
     }
 
-    d->configState = allWritable ?  ReadWrite : ReadOnly; // update the read/write status
+    d->configState = allWritable ? ReadWrite : ReadOnly; // update the read/write status
 
     return allWritable;
 }
@@ -1118,15 +1148,13 @@ bool KConfig::hasGroupImpl(const QByteArray &aGroup) const
 
 bool KConfigPrivate::canWriteEntry(const QByteArray &group, const char *key, bool isDefault) const
 {
-    if (bFileImmutable ||
-        entryMap.getEntryOption(group, key, KEntryMap::SearchLocalized, KEntryMap::EntryImmutable)) {
+    if (bFileImmutable || entryMap.getEntryOption(group, key, KEntryMap::SearchLocalized, KEntryMap::EntryImmutable)) {
         return isDefault;
     }
     return true;
 }
 
-void KConfigPrivate::putData(const QByteArray &group, const char *key,
-                             const QByteArray &value, KConfigBase::WriteConfigFlags flags, bool expand)
+void KConfigPrivate::putData(const QByteArray &group, const char *key, const QByteArray &value, KConfigBase::WriteConfigFlags flags, bool expand)
 {
     KEntryMap::EntryOptions options = convertToOptions(flags);
 
@@ -1157,21 +1185,24 @@ void KConfigPrivate::revertEntry(const QByteArray &group, const char *key, KConf
     }
 }
 
-QByteArray KConfigPrivate::lookupData(const QByteArray &group, const char *key,
-                                      KEntryMap::SearchFlags flags) const
+QByteArray KConfigPrivate::lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags) const
+{
+    return lookupInternalEntry(group, key, flags).mValue;
+}
+
+KEntry KConfigPrivate::lookupInternalEntry(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags) const
 {
     if (bReadDefaults) {
         flags |= KEntryMap::SearchDefaults;
     }
-    const KEntryMapConstIterator it = entryMap.findEntry(group, key, flags);
+    const auto it = entryMap.constFindEntry(group, key, flags);
     if (it == entryMap.constEnd()) {
-        return QByteArray();
+        return {};
     }
-    return it->mValue;
+    return it.value();
 }
 
-QString KConfigPrivate::lookupData(const QByteArray &group, const char *key,
-                                   KEntryMap::SearchFlags flags, bool *expand) const
+QString KConfigPrivate::lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags, bool *expand) const
 {
     if (bReadDefaults) {
         flags |= KEntryMap::SearchDefaults;

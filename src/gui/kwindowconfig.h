@@ -1,22 +1,8 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2012 Benjamin Port <benjamin.port@ben2367.fr>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2012 Benjamin Port <benjamin.port@ben2367.fr>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) version 3, or any
-   later version accepted by the membership of KDE e.V. (or its
-   successor approved by the membership of KDE e.V.), which shall
-   act as a proxy defined in Section 6 of version 3 of the license.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
-
-   You should have received a copy of the GNU Lesser General Public
-   License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+    SPDX-License-Identifier: LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL
 */
 
 #ifndef KWINDOWCONFIG_H
@@ -68,7 +54,33 @@ KCONFIGGUI_EXPORT void saveWindowSize(const QWindow *window, KConfigGroup &confi
  * @param config The config group to read from.
  * @since 5.0.
  */
-KCONFIGGUI_EXPORT void restoreWindowSize(QWindow *window,  const KConfigGroup &config);
-}
+KCONFIGGUI_EXPORT void restoreWindowSize(QWindow *window, const KConfigGroup &config);
 
+/**
+ * Saves the window's position either to the global or application config file.
+ * This function has no effect on Wayland, where the compositor is responsible
+ * for window positioning.
+ *
+ * @note the group must be set before calling
+ *
+ * @param window The window whose position to save.
+ * @param config The config group to read from.
+ * @param options passed to KConfigGroup::writeEntry()
+ * @since 5.74
+ */
+KCONFIGGUI_EXPORT void saveWindowPosition(const QWindow *window, KConfigGroup &config, KConfigGroup::WriteConfigFlags options = KConfigGroup::Normal);
+
+/**
+ * Restores the window's position from the configuration.
+ * This function has no effect on Wayland, where the compositor is responsible
+ * for window positioning.
+ *
+ * @note the group must be set before calling
+ *
+ * @param window The window whose position to restore.
+ * @param config The config group to read from.
+ * @since 5.74
+ */
+KCONFIGGUI_EXPORT void restoreWindowPosition(QWindow *window, const KConfigGroup &config);
+}
 #endif // KWINDOWCONFIG_H

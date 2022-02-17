@@ -1,20 +1,7 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 1997 Matthias Kalle Dalheimer (kalle@kde.org)
+/*  This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIGTEST_H
@@ -27,9 +14,18 @@ class KConfigTest : public QObject
     Q_OBJECT
 
 public:
-    enum Testing { Ones = 1, Tens = 10, Hundreds = 100};
+    enum Testing {
+        Ones = 1,
+        Tens = 10,
+        Hundreds = 100,
+    };
     Q_ENUM(Testing)
-    enum bits { bit0 = 1, bit1 = 2, bit2 = 4, bit3 = 8 };
+    enum bits {
+        bit0 = 1,
+        bit1 = 2,
+        bit2 = 4,
+        bit3 = 8,
+    };
     Q_DECLARE_FLAGS(Flags, bits)
     Q_FLAG(Flags)
 
@@ -68,6 +64,8 @@ private Q_SLOTS:
     void testQStringUtf8_data();
     void testQStringUtf8();
 
+    void testMoveValuesTo();
+
     void testSubGroup();
     void testAddConfigSources();
     void testWriteOnSync();
@@ -80,14 +78,22 @@ private Q_SLOTS:
     void testLocaleConfig();
     void testDirtyAfterRevert();
     void testKdeGlobals();
+    void testLocalDeletion();
     void testNewlines();
     void testXdgListEntry();
     void testNotify();
+    void testKAuthorizeEnums();
 
     void testThreads();
 
+    void testKdeglobalsVsDefault();
+
     // should be last
     void testSyncOnExit();
+
+private:
+    QString m_testConfigDir;
+    QString m_kdeGlobalsPath;
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigTest::Flags)
 

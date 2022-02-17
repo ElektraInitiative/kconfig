@@ -1,50 +1,44 @@
 /*
- *
- *  This file is part of the KDE libraries
- *  Copyright (c) 2001 Waldo Bastian <bastian@kde.org>
- *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Library General Public
- *  License version 2 as published by the Free Software Foundation.
- *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Library General Public License for more details.
- *
- *  You should have received a copy of the GNU Library General Public License
- *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA 02110-1301, USA.
- **/
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2001 Waldo Bastian <bastian@kde.org>
+
+    SPDX-License-Identifier: LGPL-2.0-only
+*/
 
 #include <config-kconf.h> // CMAKE_INSTALL_PREFIX
 
-#include <QDate>
-#include <QFile>
-#include <QTextStream>
-#include <QTextCodec>
-#include <QUrl>
-#include <QTemporaryFile>
 #include <QCoreApplication>
-#include <QDir>
-#include <QProcess>
+#include <QDate>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QProcess>
+#include <QTemporaryFile>
+#include <QTextStream>
+#include <QUrl>
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#include <QTextCodec>
+#endif
 
 #include <kconfig.h>
 #include <kconfiggroup.h>
 
-#include <qstandardpaths.h>
-#include <qcommandlineparser.h>
-#include <qcommandlineoption.h>
+#include <QCommandLineOption>
+#include <QCommandLineParser>
+#include <QStandardPaths>
 
 #include "kconf_update_debug.h"
 #include "kconfigutils.h"
 
 // Convenience wrapper around qCDebug to prefix the output with metadata of
 // the file.
-#define qCDebugFile(CATEGORY) \
-    qCDebug(CATEGORY) << m_currentFilename << ':' << m_lineCount << ":'" << m_line << "': "
+#define qCDebugFile(CATEGORY) qCDebug(CATEGORY) << m_currentFilename << ':' << m_lineCount << ":'" << m_line << "': "
+
+static bool caseInsensitiveCompare(const QStringView &a, const QLatin1String &b)
+{
+    return a.compare(b, Qt::CaseInsensitive) == 0;
+}
 
 class KonfUpdate
 {
@@ -53,7 +47,7 @@ public:
     ~KonfUpdate();
 
     KonfUpdate(const KonfUpdate &) = delete;
-    KonfUpdate& operator=(const KonfUpdate &) = delete;
+    KonfUpdate &operator=(const KonfUpdate &) = delete;
 
     QStringList findUpdateFiles(bool dirtyOnly);
 
@@ -75,8 +69,7 @@ public:
     void gotScriptArguments(const QString &_arguments);
     void resetOptions();
 
-    void copyGroup(const KConfigBase *cfg1, const QString &group1,
-                   KConfigBase *cfg2, const QString &group2);
+    void copyGroup(const KConfigBase *cfg1, const QString &group1, KConfigBase *cfg2, const QString &group2);
     void copyGroup(const KConfigGroup &cg1, KConfigGroup &cg2);
     void copyOrMoveKey(const QStringList &srcGroupPath, const QString &srcKey, const QStringList &dstGroupPath, const QString &dstKey);
     void copyOrMoveGroup(const QStringList &srcGroupPath, const QStringList &dstGroupPath);
@@ -84,11 +77,13 @@ public:
     QStringList parseGroupString(const QString &_str);
 
 protected:
+    /** kconf_updaterc */
     KConfig *m_config;
     QString m_currentFilename;
     bool m_skip;
     bool m_skipFile;
-    bool m_debug;
+    bool m_bTestMode;
+    bool m_bDebugOutput;
     QString m_id;
 
     QString m_oldFile;
@@ -112,9 +107,14 @@ protected:
 };
 
 KonfUpdate::KonfUpdate(QCommandLineParser *parser)
-    : m_oldConfig1(nullptr), m_oldConfig2(nullptr), m_newConfig(nullptr),
-      m_bCopy(false), m_bOverwrite(false), m_textStream(nullptr),
-      m_file(nullptr), m_lineCount(-1)
+    : m_oldConfig1(nullptr)
+    , m_oldConfig2(nullptr)
+    , m_newConfig(nullptr)
+    , m_bCopy(false)
+    , m_bOverwrite(false)
+    , m_textStream(nullptr)
+    , m_file(nullptr)
+    , m_lineCount(-1)
 {
     bool updateAll = false;
 
@@ -123,29 +123,30 @@ KonfUpdate::KonfUpdate(QCommandLineParser *parser)
 
     QStringList updateFiles;
 
-    m_debug = parser->isSet(QStringLiteral("debug"));
-    if (m_debug) {
+    m_bDebugOutput = parser->isSet(QStringLiteral("debug"));
+    if (m_bDebugOutput) {
         // The only way to enable debug reliably is through a filter rule.
         // The category itself is const, so we can't just go around changing
         // its mode. This can however be overridden by the environment, so
         // we'll want to have a fallback warning if debug is not enabled
         // after setting the filter.
-        QLoggingCategory::setFilterRules(QStringLiteral("%1.debug=true").arg(KCONF_UPDATE_LOG().categoryName()));
+        QLoggingCategory::setFilterRules(QLatin1String("%1.debug=true").arg(QLatin1String{KCONF_UPDATE_LOG().categoryName()}));
         qDebug() << "Automatically enabled the debug logging category" << KCONF_UPDATE_LOG().categoryName();
         if (!KCONF_UPDATE_LOG().isDebugEnabled()) {
-            qWarning("The debug logging category %s needs to be enabled manually to get debug output",
-                     KCONF_UPDATE_LOG().categoryName());
+            qWarning("The debug logging category %s needs to be enabled manually to get debug output", KCONF_UPDATE_LOG().categoryName());
         }
     }
 
-    if (parser->isSet(QStringLiteral("testmode"))) {
+    m_bTestMode = parser->isSet(QStringLiteral("testmode"));
+    if (m_bTestMode) {
         QStandardPaths::setTestModeEnabled(true);
     }
 
     m_bUseConfigInfo = false;
     if (parser->isSet(QStringLiteral("check"))) {
         m_bUseConfigInfo = true;
-        const QString file = QStandardPaths::locate(QStandardPaths::GenericDataLocation, "kconf_update/" + parser->value(QStringLiteral("check")));
+        const QString file =
+            QStandardPaths::locate(QStandardPaths::GenericDataLocation, QLatin1String{"kconf_update/"} + parser->value(QStringLiteral("check")));
         if (file.isEmpty()) {
             qWarning("File '%s' not found.", parser->value(QStringLiteral("check")).toLocal8Bit().data());
             qCDebug(KCONF_UPDATE_LOG) << "File" << parser->value(QStringLiteral("check")) << "passed on command line not found";
@@ -154,6 +155,9 @@ KonfUpdate::KonfUpdate(QCommandLineParser *parser)
         updateFiles.append(file);
     } else if (!parser->positionalArguments().isEmpty()) {
         updateFiles += parser->positionalArguments();
+    } else if (m_bTestMode) {
+        qWarning("Test mode enabled, but no files given.");
+        return;
     } else {
         if (cg.readEntry("autoUpdateDisabled", false)) {
             return;
@@ -162,7 +166,7 @@ KonfUpdate::KonfUpdate(QCommandLineParser *parser)
         updateAll = true;
     }
 
-    for (const QString& file : qAsConst(updateFiles)) {
+    for (const QString &file : std::as_const(updateFiles)) {
         updateFile(file);
     }
 
@@ -170,10 +174,8 @@ KonfUpdate::KonfUpdate(QCommandLineParser *parser)
         cg.writeEntry("updateInfoAdded", true);
         updateFiles = findUpdateFiles(false);
 
-        for (QStringList::ConstIterator it = updateFiles.constBegin();
-                it != updateFiles.constEnd();
-                ++it) {
-            checkFile(*it);
+        for (const auto &file : std::as_const(updateFiles)) {
+            checkFile(file);
         }
         updateFiles.clear();
     }
@@ -202,9 +204,9 @@ QStringList KonfUpdate::findUpdateFiles(bool dirtyOnly)
             KConfigGroup cg(m_config, fileName);
             const QDateTime ctime = QDateTime::fromSecsSinceEpoch(cg.readEntry("ctime", 0u));
             const QDateTime mtime = QDateTime::fromSecsSinceEpoch(cg.readEntry("mtime", 0u));
-            if (!dirtyOnly ||
-                    (ctime.isValid() && ctime != info.birthTime()) ||
-                     mtime != info.lastModified()) {
+            if (!dirtyOnly //
+                || (ctime.isValid() && ctime != info.birthTime()) //
+                || mtime != info.lastModified()) {
                 result.append(file);
             }
         }
@@ -215,7 +217,7 @@ QStringList KonfUpdate::findUpdateFiles(bool dirtyOnly)
 bool KonfUpdate::checkFile(const QString &filename)
 {
     m_currentFilename = filename;
-    int i = m_currentFilename.lastIndexOf('/');
+    const int i = m_currentFilename.lastIndexOf(QLatin1Char{'/'});
     if (i != -1) {
         m_currentFilename = m_currentFilename.mid(i + 1);
     }
@@ -226,7 +228,11 @@ bool KonfUpdate::checkFile(const QString &filename)
     }
 
     QTextStream ts(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     ts.setCodec(QTextCodec::codecForName("ISO-8859-1"));
+#else
+    ts.setEncoding(QStringConverter::Encoding::Latin1);
+#endif
     int lineCount = 0;
     resetOptions();
     QString id;
@@ -237,17 +243,15 @@ bool KonfUpdate::checkFile(const QString &filename)
             foundVersion = true;
         }
         ++lineCount;
-        if (line.isEmpty() || (line[0] == '#')) {
+        if (line.isEmpty() || (line[0] == QLatin1Char{'#'})) {
             continue;
         }
         if (line.startsWith(QLatin1String("Id="))) {
             if (!foundVersion) {
-                qCDebug(KCONF_UPDATE_LOG,
-                        "Missing 'Version=5', file '%s' will be skipped.",
-                        qUtf8Printable(filename));
+                qCDebug(KCONF_UPDATE_LOG, "Missing 'Version=5', file '%s' will be skipped.", qUtf8Printable(filename));
                 return true;
             }
-            id = m_currentFilename + ':' + line.mid(3);
+            id = m_currentFilename + QLatin1Char{':'} + line.mid(3);
         } else if (line.startsWith(QLatin1String("File="))) {
             checkGotFile(line.mid(5), id);
         }
@@ -259,14 +263,14 @@ bool KonfUpdate::checkFile(const QString &filename)
 void KonfUpdate::checkGotFile(const QString &_file, const QString &id)
 {
     QString file;
-    int i = _file.indexOf(',');
+    const int i = _file.indexOf(QLatin1Char{','});
     if (i == -1) {
         file = _file.trimmed();
     } else {
         file = _file.mid(i + 1).trimmed();
     }
 
-//   qDebug("File %s, id %s", file.toLatin1().constData(), id.toLatin1().constData());
+    //   qDebug("File %s, id %s", file.toLatin1().constData(), id.toLatin1().constData());
 
     KConfig cfg(file, KConfig::SimpleConfig);
     KConfigGroup cg = cfg.group("$Version");
@@ -300,20 +304,25 @@ void KonfUpdate::checkGotFile(const QString &_file, const QString &id)
 bool KonfUpdate::updateFile(const QString &filename)
 {
     m_currentFilename = filename;
-    int i = m_currentFilename.lastIndexOf('/');
+    const int i = m_currentFilename.lastIndexOf(QLatin1Char{'/'});
     if (i != -1) {
         m_currentFilename = m_currentFilename.mid(i + 1);
     }
     m_skip = true;
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly)) {
+        qWarning("Could not open update-file '%s'.", qUtf8Printable(filename));
         return false;
     }
 
     qCDebug(KCONF_UPDATE_LOG) << "Checking update-file" << filename << "for new updates";
 
     QTextStream ts(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     ts.setCodec(QTextCodec::codecForName("ISO-8859-1"));
+#else
+    ts.setEncoding(QStringConverter::Encoding::Latin1);
+#endif
     m_lineCount = 0;
     resetOptions();
     bool foundVersion = false;
@@ -322,15 +331,13 @@ bool KonfUpdate::updateFile(const QString &filename)
         if (m_line.startsWith(QLatin1String("Version=5"))) {
             foundVersion = true;
         }
-        m_lineCount++;
+        ++m_lineCount;
         if (m_line.isEmpty() || (m_line[0] == QLatin1Char('#'))) {
             continue;
         }
         if (m_line.startsWith(QLatin1String("Id="))) {
             if (!foundVersion) {
-                qCDebug(KCONF_UPDATE_LOG,
-                        "Missing 'Version=5', file '%s' will be skipped.",
-                        qUtf8Printable(filename));
+                qCDebug(KCONF_UPDATE_LOG, "Missing 'Version=5', file '%s' will be skipped.", qUtf8Printable(filename));
                 break;
             }
             gotId(m_line.mid(3));
@@ -371,19 +378,24 @@ bool KonfUpdate::updateFile(const QString &filename)
     // Flush.
     gotId(QString());
 
-    QFileInfo info(filename);
-    KConfigGroup cg(m_config, m_currentFilename);
-    if (info.birthTime().isValid()) {
-        cg.writeEntry("ctime", info.birthTime().toSecsSinceEpoch());
+    // Remember that this file was updated:
+    if (!m_bTestMode) {
+        QFileInfo info(filename);
+        KConfigGroup cg(m_config, m_currentFilename);
+        if (info.birthTime().isValid()) {
+            cg.writeEntry("ctime", info.birthTime().toSecsSinceEpoch());
+        }
+        cg.writeEntry("mtime", info.lastModified().toSecsSinceEpoch());
+        cg.sync();
     }
-    cg.writeEntry("mtime", info.lastModified().toSecsSinceEpoch());
-    cg.sync();
+
     return true;
 }
 
 void KonfUpdate::gotId(const QString &_id)
 {
-    if (!m_id.isEmpty() && !m_skip) {
+    // Remember that the last update group has been done:
+    if (!m_id.isEmpty() && !m_skip && !m_bTestMode) {
         KConfigGroup cg(m_config, m_currentFilename);
 
         QStringList ids = cg.readEntry("done", QStringList());
@@ -396,25 +408,26 @@ void KonfUpdate::gotId(const QString &_id)
 
     // Flush pending changes
     gotFile(QString());
-    KConfigGroup cg(m_config, m_currentFilename);
 
+    if (_id.isEmpty()) {
+        return;
+    }
+
+    // Check whether this update group needs to be done:
+    KConfigGroup cg(m_config, m_currentFilename);
     QStringList ids = cg.readEntry("done", QStringList());
-    if (!_id.isEmpty()) {
-        if (ids.contains(_id)) {
-            //qDebug("Id '%s' was already in done-list", _id.toLatin1().constData());
-            if (!m_bUseConfigInfo) {
-                m_skip = true;
-                return;
-            }
-        }
-        m_skip = false;
-        m_skipFile = false;
-        m_id = _id;
-        if (m_bUseConfigInfo) {
-            qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": Checking update" << _id;
-        } else {
-            qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": Found new update" << _id;
-        }
+    if (ids.contains(_id) && !m_bUseConfigInfo) {
+        // qDebug("Id '%s' was already in done-list", _id.toLatin1().constData());
+        m_skip = true;
+        return;
+    }
+    m_skip = false;
+    m_skipFile = false;
+    m_id = _id;
+    if (m_bUseConfigInfo) {
+        qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": Checking update" << _id;
+    } else {
+        qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": Found new update" << _id;
     }
 }
 
@@ -430,7 +443,7 @@ void KonfUpdate::gotFile(const QString &_file)
 
         KConfigGroup cg(m_oldConfig2, "$Version");
         QStringList ids = cg.readEntry("update_info", QStringList());
-        QString cfg_id = m_currentFilename + ':' + m_id;
+        QString cfg_id = m_currentFilename + QLatin1Char{':'} + m_id;
         if (!ids.contains(cfg_id) && !m_skip) {
             ids.append(cfg_id);
             cg.writeEntry("update_info", ids);
@@ -452,7 +465,7 @@ void KonfUpdate::gotFile(const QString &_file)
         // Close new file.
         KConfigGroup cg(m_newConfig, "$Version");
         QStringList ids = cg.readEntry("update_info", QStringList());
-        QString cfg_id = m_currentFilename + ':' + m_id;
+        const QString cfg_id = m_currentFilename + QLatin1Char{':'} + m_id;
         if (!ids.contains(cfg_id) && !m_skip) {
             ids.append(cfg_id);
             cg.writeEntry("update_info", ids);
@@ -465,7 +478,7 @@ void KonfUpdate::gotFile(const QString &_file)
     }
     m_newConfig = nullptr;
 
-    int i = _file.indexOf(',');
+    const int i = _file.indexOf(QLatin1Char{','});
     if (i == -1) {
         m_oldFile = _file.trimmed();
     } else {
@@ -478,7 +491,7 @@ void KonfUpdate::gotFile(const QString &_file)
 
     if (!m_oldFile.isEmpty()) {
         m_oldConfig2 = new KConfig(m_oldFile, KConfig::NoGlobals);
-        QString cfg_id = m_currentFilename + ':' + m_id;
+        const QString cfg_id = m_currentFilename + QLatin1Char{':'} + m_id;
         KConfigGroup cg(m_oldConfig2, "$Version");
         QStringList ids = cg.readEntry("update_info", QStringList());
         if (ids.contains(cfg_id)) {
@@ -511,8 +524,8 @@ void KonfUpdate::gotFile(const QString &_file)
     m_skipFile = false;
     if (!m_oldFile.isEmpty()) { // if File= is specified, it doesn't exist, is empty or contains only kconf_update's [$Version] group, skip
         if (m_oldConfig1 != nullptr
-                && (m_oldConfig1->groupList().isEmpty()
-                    || (m_oldConfig1->groupList().count() == 1 && m_oldConfig1->groupList().at(0) == QLatin1String("$Version")))) {
+            && (m_oldConfig1->groupList().isEmpty()
+                || (m_oldConfig1->groupList().count() == 1 && m_oldConfig1->groupList().at(0) == QLatin1String("$Version")))) {
             qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": File" << m_oldFile << "does not exist or empty, skipping";
             m_skipFile = true;
         }
@@ -538,7 +551,7 @@ void KonfUpdate::gotGroup(const QString &_group)
         return;
     }
 
-    QStringList tokens = group.split(',');
+    const QStringList tokens = group.split(QLatin1Char{','});
     m_oldGroup = parseGroupString(tokens.at(0));
     if (tokens.count() == 1) {
         m_newGroup = m_oldGroup;
@@ -567,8 +580,9 @@ void KonfUpdate::gotRemoveGroup(const QString &_group)
 
 void KonfUpdate::gotKey(const QString &_key)
 {
-    QString oldKey, newKey;
-    int i = _key.indexOf(',');
+    QString oldKey;
+    QString newKey;
+    const int i = _key.indexOf(QLatin1Char{','});
     if (i == -1) {
         oldKey = _key.trimmed();
         newKey = oldKey;
@@ -609,9 +623,7 @@ void KonfUpdate::copyOrMoveKey(const QStringList &srcGroupPath, const QString &s
     }
 
     // Delete old entry
-    if (m_oldConfig2 == m_newConfig
-            && srcGroupPath == dstGroupPath
-            && srcKey == dstKey) {
+    if (m_oldConfig2 == m_newConfig && srcGroupPath == dstGroupPath && srcKey == dstKey) {
         return; // Don't delete!
     }
     KConfigGroup srcCg2 = KConfigUtils::openGroup(m_oldConfig2, srcGroupPath);
@@ -683,9 +695,8 @@ void KonfUpdate::gotAllGroups()
     }
 
     const QStringList allGroups = m_oldConfig1->groupList();
-    for (QStringList::ConstIterator it = allGroups.begin();
-            it != allGroups.end(); ++it) {
-        m_oldGroup = QStringList() << *it;
+    for (const auto &grp : allGroups) {
+        m_oldGroup = QStringList{grp};
         m_newGroup = m_oldGroup;
         gotAllKeys();
     }
@@ -693,22 +704,19 @@ void KonfUpdate::gotAllGroups()
 
 void KonfUpdate::gotOptions(const QString &_options)
 {
-    const QStringList options = _options.split(',');
-    for (QStringList::ConstIterator it = options.begin();
-            it != options.end();
-            ++it) {
-        if ((*it).toLower().trimmed() == QLatin1String("copy")) {
-            m_bCopy = true;
-        }
+    const QStringList options = _options.split(QLatin1Char{','});
+    for (const auto &opt : options) {
+        const auto normalizedOpt = QStringView(opt).trimmed();
 
-        if ((*it).toLower().trimmed() == QLatin1String("overwrite")) {
+        if (caseInsensitiveCompare(normalizedOpt, QLatin1String("copy"))) {
+            m_bCopy = true;
+        } else if (caseInsensitiveCompare(normalizedOpt, QLatin1String("overwrite"))) {
             m_bOverwrite = true;
         }
     }
 }
 
-void KonfUpdate::copyGroup(const KConfigBase *cfg1, const QString &group1,
-                           KConfigBase *cfg2, const QString &group2)
+void KonfUpdate::copyGroup(const KConfigBase *cfg1, const QString &group1, KConfigBase *cfg2, const QString &group2)
 {
     KConfigGroup cg2 = cfg2->group(group2);
     copyGroup(cfg1->group(group1), cg2);
@@ -717,9 +725,8 @@ void KonfUpdate::copyGroup(const KConfigBase *cfg1, const QString &group1,
 void KonfUpdate::copyGroup(const KConfigGroup &cg1, KConfigGroup &cg2)
 {
     // Copy keys
-    QMap<QString, QString> list = cg1.entryMap();
-    for (QMap<QString, QString>::ConstIterator it = list.constBegin();
-            it != list.constEnd(); ++it) {
+    const auto map = cg1.entryMap();
+    for (auto it = map.cbegin(); it != map.cend(); ++it) {
         if (m_bOverwrite || !cg2.hasKey(it.key())) {
             cg2.writeEntry(it.key(), it.value());
         }
@@ -739,8 +746,9 @@ void KonfUpdate::gotScriptArguments(const QString &_arguments)
 
 void KonfUpdate::gotScript(const QString &_script)
 {
-    QString script, interpreter;
-    int i = _script.indexOf(',');
+    QString script;
+    QString interpreter;
+    const int i = _script.indexOf(QLatin1Char{','});
     if (i == -1) {
         script = _script.trimmed();
     } else {
@@ -757,7 +765,7 @@ void KonfUpdate::gotScript(const QString &_script)
     QString path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QLatin1String("kconf_update/") + script);
     if (path.isEmpty()) {
         if (interpreter.isEmpty()) {
-            path = CMAKE_INSTALL_PREFIX "/" LIB_INSTALL_DIR "/kconf_update_bin/" + script;
+            path = QLatin1String{CMAKE_INSTALL_PREFIX "/" LIB_INSTALL_DIR "/kconf_update_bin/"} + script;
             if (!QFile::exists(path)) {
                 path = QStandardPaths::findExecutable(script);
             }
@@ -796,9 +804,11 @@ void KonfUpdate::gotScript(const QString &_script)
     }
 
     QTemporaryFile scriptIn;
-    scriptIn.open();
     QTemporaryFile scriptOut;
-    scriptOut.open();
+    if (!scriptIn.open() || !scriptOut.open()) {
+        qCDebugFile(KCONF_UPDATE_LOG) << "Could not create temporary file!";
+        return;
+    }
 
     int result;
     QProcess proc;
@@ -806,8 +816,7 @@ void KonfUpdate::gotScript(const QString &_script)
     proc.setStandardInputFile(scriptIn.fileName());
     proc.setStandardOutputFile(scriptOut.fileName());
     if (m_oldConfig1) {
-        if (m_debug) {
-            scriptIn.setAutoRemove(false);
+        if (m_bDebugOutput) {
             qCDebug(KCONF_UPDATE_LOG) << "Script input stored in" << scriptIn.fileName();
         }
         KConfig cfg(scriptIn.fileName(), KConfig::SimpleConfig);
@@ -815,10 +824,8 @@ void KonfUpdate::gotScript(const QString &_script)
         if (m_oldGroup.isEmpty()) {
             // Write all entries to tmpFile;
             const QStringList grpList = m_oldConfig1->groupList();
-            for (QStringList::ConstIterator it = grpList.begin();
-                    it != grpList.end();
-                    ++it) {
-                copyGroup(m_oldConfig1, *it, &cfg, *it);
+            for (const auto &grp : grpList) {
+                copyGroup(m_oldConfig1, grp, &cfg, grp);
             }
         } else {
             KConfigGroup cg1 = KConfigUtils::openGroup(m_oldConfig1, m_oldGroup);
@@ -829,7 +836,7 @@ void KonfUpdate::gotScript(const QString &_script)
     }
 
     qCDebug(KCONF_UPDATE_LOG) << "About to run" << cmd;
-    if (m_debug) {
+    if (m_bDebugOutput) {
         QFile scriptFile(path);
         if (scriptFile.open(QIODevice::ReadOnly)) {
             qCDebug(KCONF_UPDATE_LOG) << "Script contents is:\n" << scriptFile.readAll();
@@ -846,7 +853,9 @@ void KonfUpdate::gotScript(const QString &_script)
     // Copy script stderr to log file
     {
         QTextStream ts(proc.readAllStandardError());
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         ts.setCodec(QTextCodec::codecForName("UTF-8"));
+#endif
         while (!ts.atEnd()) {
             QString line = ts.readLine();
             qCDebug(KCONF_UPDATE_LOG) << "[Script]" << line;
@@ -865,8 +874,7 @@ void KonfUpdate::gotScript(const QString &_script)
         return; // Nothing to merge
     }
 
-    if (m_debug) {
-        scriptOut.setAutoRemove(false);
+    if (m_bDebugOutput) {
         qCDebug(KCONF_UPDATE_LOG) << "Script output stored in" << scriptOut.fileName();
         QFile output(scriptOut.fileName());
         if (output.open(QIODevice::ReadOnly)) {
@@ -880,18 +888,20 @@ void KonfUpdate::gotScript(const QString &_script)
         QFile output(scriptOut.fileName());
         if (output.open(QIODevice::ReadOnly)) {
             QTextStream ts(&output);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
             ts.setCodec(QTextCodec::codecForName("UTF-8"));
+#endif
             while (!ts.atEnd()) {
-                QString line = ts.readLine();
-                if (line.startsWith('[')) {
+                const QString line = ts.readLine();
+                if (line.startsWith(QLatin1Char{'['})) {
                     group = parseGroupString(line);
                 } else if (line.startsWith(QLatin1String("# DELETE "))) {
                     QString key = line.mid(9);
-                    if (key[0] == '[') {
-                        int j = key.lastIndexOf(']') + 1;
-                        if (j > 0) {
-                            group = parseGroupString(key.left(j));
-                            key = key.mid(j);
+                    if (key.startsWith(QLatin1Char{'['})) {
+                        const int idx = key.lastIndexOf(QLatin1Char{']'}) + 1;
+                        if (idx > 0) {
+                            group = parseGroupString(key.left(idx));
+                            key = key.mid(idx);
                         }
                     }
                     KConfigGroup cg = KConfigUtils::openGroup(m_oldConfig2, group);
@@ -901,7 +911,7 @@ void KonfUpdate::gotScript(const QString &_script)
                        qCDebug(KCONF_UPDATE_LOG) << m_currentFilename << ": Removing empty group " << m_oldFile << ":" << group;
                     } (this should be automatic)*/
                 } else if (line.startsWith(QLatin1String("# DELETEGROUP"))) {
-                    QString str = line.mid(13).trimmed();
+                    const QString str = line.mid(13).trimmed();
                     if (!str.isEmpty()) {
                         group = parseGroupString(str);
                     }
@@ -947,9 +957,15 @@ int main(int argc, char **argv)
     parser.setApplicationDescription(QCoreApplication::translate("main", "KDE Tool for updating user configuration files"));
     parser.addHelpOption();
     parser.addOption(QCommandLineOption(QStringList() << QStringLiteral("debug"), QCoreApplication::translate("main", "Keep output results from scripts")));
-    parser.addOption(QCommandLineOption(QStringList() << QStringLiteral("testmode"), QCoreApplication::translate("main", "For unit tests only: use test directories to stay away from the user's real files")));
-    parser.addOption(QCommandLineOption(QStringList() << QStringLiteral("check"), QCoreApplication::translate("main", "Check whether config file itself requires updating"), QStringLiteral("update-file")));
-    parser.addPositionalArgument(QStringLiteral("files"), QCoreApplication::translate("main", "File(s) to read update instructions from"), QStringLiteral("[files...]"));
+    parser.addOption(
+        QCommandLineOption(QStringList() << QStringLiteral("testmode"),
+                           QCoreApplication::translate("main", "For unit tests only: use test directories to stay away from the user's real files")));
+    parser.addOption(QCommandLineOption(QStringList() << QStringLiteral("check"),
+                                        QCoreApplication::translate("main", "Check whether config file itself requires updating"),
+                                        QStringLiteral("update-file")));
+    parser.addPositionalArgument(QStringLiteral("files"),
+                                 QCoreApplication::translate("main", "File(s) to read update instructions from"),
+                                 QStringLiteral("[files...]"));
 
     // TODO aboutData.addAuthor(ki18n("Waldo Bastian"), KLocalizedString(), "bastian@kde.org");
 

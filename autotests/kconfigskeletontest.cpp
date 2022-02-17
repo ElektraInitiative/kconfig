@@ -1,27 +1,14 @@
-/* This file is part of the KDE libraries
-    Copyright (C) 2006 Olivier Goffart  <ogoffart at kde.org>
+/*  This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006 Olivier Goffart <ogoffart at kde.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #include "kconfigskeletontest.h"
 
-#include <kconfig.h>
 #include <QFont>
 #include <QtTestGui>
+#include <kconfig.h>
 
 #if false
 #ifdef FEAT_ELEKTRA
@@ -31,15 +18,25 @@
 
 QTEST_MAIN(KConfigSkeletonTest)
 
-#define DEFAULT_SETTING1 false
-#define DEFAULT_SETTING2 QColor(1,2,3)
-#define DEFAULT_SETTING3 QFont("helvetica",12)
-#define DEFAULT_SETTING4 QString("Hello World")
+// clazy:excludeall=non-pod-global-static
 
-#define WRITE_SETTING1 true
-#define WRITE_SETTING2 QColor(3,2,1)
-#define WRITE_SETTING3 QFont("helvetica",14)
-#define WRITE_SETTING4 QString("KDE")
+static const bool s_default_setting1{false};
+static const QColor s_default_setting2{1, 2, 3};
+static const QString s_default_setting4{QStringLiteral("Hello World")};
+
+static const bool s_write_setting1{true};
+static const QColor s_write_setting2{3, 2, 1};
+static const QString s_write_setting4{QStringLiteral("KDE")};
+
+static QFont defaultSetting3()
+{
+    return QFont{QStringLiteral("helvetica"), 12};
+}
+
+static QFont writeSettings3()
+{
+    return QFont{QStringLiteral("helvetica"), 14};
+}
 
 void KConfigSkeletonTest::initTestCase()
 {
@@ -51,20 +48,20 @@ void KConfigSkeletonTest::initTestCase()
 
 void KConfigSkeletonTest::init()
 {
-    QFile::remove(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/kconfigskeletontestrc");
+    QFile::remove(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String{"/kconfigskeletontestrc"});
     s = new KConfigSkeleton(QStringLiteral("kconfigskeletontestrc"));
     s->setCurrentGroup(QStringLiteral("MyGroup"));
-    itemBool = s->addItemBool(QStringLiteral("MySetting1"), mMyBool, DEFAULT_SETTING1);
-    s->addItemColor(QStringLiteral("MySetting2"), mMyColor, DEFAULT_SETTING2);
+    itemBool = s->addItemBool(QStringLiteral("MySetting1"), mMyBool, s_default_setting1);
+    s->addItemColor(QStringLiteral("MySetting2"), mMyColor, s_default_setting2);
 
     s->setCurrentGroup(QStringLiteral("MyOtherGroup"));
-    s->addItemFont(QStringLiteral("MySetting3"), mMyFont, DEFAULT_SETTING3);
-    s->addItemString(QStringLiteral("MySetting4"), mMyString, DEFAULT_SETTING4);
+    s->addItemFont(QStringLiteral("MySetting3"), mMyFont, defaultSetting3());
+    s->addItemString(QStringLiteral("MySetting4"), mMyString, s_default_setting4);
 
-    QCOMPARE(mMyBool, DEFAULT_SETTING1);
-    QCOMPARE(mMyColor, DEFAULT_SETTING2);
-    QCOMPARE(mMyFont, DEFAULT_SETTING3);
-    QCOMPARE(mMyString, DEFAULT_SETTING4);
+    QCOMPARE(mMyBool, s_default_setting1);
+    QCOMPARE(mMyColor, s_default_setting2);
+    QCOMPARE(mMyFont, defaultSetting3());
+    QCOMPARE(mMyString, s_default_setting4);
 
     QVERIFY(s->isDefaults());
     QVERIFY(!s->isSaveNeeded());
@@ -91,10 +88,10 @@ void KConfigSkeletonTest::cleanup()
 
 void KConfigSkeletonTest::testSimple()
 {
-    mMyBool = WRITE_SETTING1;
-    mMyColor = WRITE_SETTING2;
-    mMyFont = WRITE_SETTING3;
-    mMyString = WRITE_SETTING4;
+    mMyBool = s_write_setting1;
+    mMyColor = s_write_setting2;
+    mMyFont = writeSettings3();
+    mMyString = s_write_setting4;
 
     QVERIFY(s->isSaveNeeded());
     QVERIFY(!s->isDefaults());
@@ -117,38 +114,38 @@ void KConfigSkeletonTest::testSimple()
     QVERIFY(!s->isSaveNeeded());
     QVERIFY(!s->isDefaults());
 
-    QCOMPARE(mMyBool, WRITE_SETTING1);
-    QCOMPARE(mMyColor, WRITE_SETTING2);
-    QCOMPARE(mMyFont, WRITE_SETTING3);
-    QCOMPARE(mMyString, WRITE_SETTING4);
+    QCOMPARE(mMyBool, s_write_setting1);
+    QCOMPARE(mMyColor, s_write_setting2);
+    QCOMPARE(mMyFont, writeSettings3());
+    QCOMPARE(mMyString, s_write_setting4);
 }
 
 void KConfigSkeletonTest::testRemoveItem()
 {
-    QVERIFY(s->findItem("MySetting1"));
+    QVERIFY(s->findItem(QStringLiteral("MySetting1")));
     s->removeItem(QStringLiteral("MySetting1"));
-    QVERIFY(!s->findItem("MySetting1"));
+    QVERIFY(!s->findItem(QStringLiteral("MySetting1")));
 }
 
 void KConfigSkeletonTest::testClear()
 {
-    QVERIFY(s->findItem("MySetting2"));
-    QVERIFY(s->findItem("MySetting3"));
-    QVERIFY(s->findItem("MySetting4"));
+    QVERIFY(s->findItem(QStringLiteral("MySetting2")));
+    QVERIFY(s->findItem(QStringLiteral("MySetting3")));
+    QVERIFY(s->findItem(QStringLiteral("MySetting4")));
 
     s->clearItems();
 
-    QVERIFY(!s->findItem("MySetting2"));
-    QVERIFY(!s->findItem("MySetting3"));
-    QVERIFY(!s->findItem("MySetting4"));
+    QVERIFY(!s->findItem(QStringLiteral("MySetting2")));
+    QVERIFY(!s->findItem(QStringLiteral("MySetting3")));
+    QVERIFY(!s->findItem(QStringLiteral("MySetting4")));
 }
 
 void KConfigSkeletonTest::testDefaults()
 {
-    mMyBool = WRITE_SETTING1;
-    mMyColor = WRITE_SETTING2;
-    mMyFont = WRITE_SETTING3;
-    mMyString = WRITE_SETTING4;
+    mMyBool = s_write_setting1;
+    mMyColor = s_write_setting2;
+    mMyFont = writeSettings3();
+    mMyString = s_write_setting4;
 
     QVERIFY(s->isSaveNeeded());
     QVERIFY(!s->isDefaults());
@@ -163,10 +160,10 @@ void KConfigSkeletonTest::testDefaults()
     QVERIFY(s->isSaveNeeded());
     QVERIFY(s->isDefaults());
 
-    QCOMPARE(mMyBool, DEFAULT_SETTING1);
-    QCOMPARE(mMyColor, DEFAULT_SETTING2);
-    QCOMPARE(mMyFont, DEFAULT_SETTING3);
-    QCOMPARE(mMyString, DEFAULT_SETTING4);
+    QCOMPARE(mMyBool, s_default_setting1);
+    QCOMPARE(mMyColor, s_default_setting2);
+    QCOMPARE(mMyFont, defaultSetting3());
+    QCOMPARE(mMyString, s_default_setting4);
 
     s->save();
 

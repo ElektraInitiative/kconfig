@@ -1,42 +1,26 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Portions copyright (c) 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIGBACKEND_H
 #define KCONFIGBACKEND_H
 
+#include <QExplicitlySharedDataPointer>
 #include <QObject>
 #include <QString>
-#include <QExplicitlySharedDataPointer>
 #include <utility>
 
-#include <kconfigcore_export.h>
 #include <kconfigbase.h>
-
+#include <kconfigcore_export.h>
 class KConfigBackendPrivate;
 
 class KEntryMap;
-
 class QFile;
-
 class QByteArray;
 
 #ifdef FEAT_ELEKTRA
@@ -69,8 +53,7 @@ public:
      * @param system        the configuration system to use
      * @return a KConfigBackend object to be used with KConfig
      */
-    static QExplicitlySharedDataPointer<KConfigBackend> create(const QString &fileName = QString(),
-            const QString &system = QString());
+    static QExplicitlySharedDataPointer<KConfigBackend> create(const QString &fileName = QString(), const QString &system = QString());
 
 #ifdef FEAT_ELEKTRA
 
@@ -91,15 +74,14 @@ public:
     static void registerMappings(const KEntryMap &entryMap);
 
     /** Destroys the backend */
-    virtual ~KConfigBackend();
+    ~KConfigBackend() override;
 
     /** Allows the behaviour of parseConfig() to be tuned */
     enum ParseOption {
         ParseGlobal = 1, /// entries should be marked as @em global
         ParseDefaults = 2, /// entries should be marked as @em default
-        ParseExpansions = 4 /// entries are allowed to be marked as @em expandable
+        ParseExpansions = 4, /// entries are allowed to be marked as @em expandable
     };
-
     Q_FLAG(ParseOption)
     /// @typedef typedef QFlags<ParseOption> ParseOptions
     Q_DECLARE_FLAGS(ParseOptions, ParseOption)
@@ -108,7 +90,6 @@ public:
     enum WriteOption {
         WriteGlobal = 1 /// only write entries marked as "global"
     };
-
     Q_FLAG(WriteOption)
     /// @typedef typedef QFlags<WriteOption> WriteOptions
     Q_DECLARE_FLAGS(WriteOptions, WriteOption)
@@ -117,7 +98,7 @@ public:
     enum ParseInfo {
         ParseOk, /// the configuration was opened read/write
         ParseImmutable, /// the configuration is @em immutable
-        ParseOpenError /// the configuration could not be opened
+        ParseOpenError, /// the configuration could not be opened
     };
 
     /**
@@ -128,9 +109,7 @@ public:
      * @param options See ParseOptions
      * @return See ParseInfo
      */
-    virtual ParseInfo parseConfig(const QByteArray &locale,
-                                  KEntryMap &pWriteBackMap,
-                                  ParseOptions options = ParseOptions()) = 0;
+    virtual ParseInfo parseConfig(const QByteArray &locale, KEntryMap &pWriteBackMap, ParseOptions options = ParseOptions()) = 0;
 
     /**
      * Write the @em dirty entries to permanent storage
@@ -141,8 +120,7 @@ public:
      *
      * @return @c true if the write was successful, @c false if writing the configuration failed
      */
-    virtual bool writeConfig(const QByteArray &locale, KEntryMap &entryMap,
-                             WriteOptions options) = 0;
+    virtual bool writeConfig(const QByteArray &locale, KEntryMap &entryMap, WriteOptions options) = 0;
 
     /**
      * If isWritable() returns false, writeConfig() will always fail.
@@ -150,7 +128,6 @@ public:
      * @return @c true if the configuration is writable, @c false if it is immutable
      */
     virtual bool isWritable() const = 0;
-
     /**
      * When isWritable() returns @c false, return an error message to
      * explain to the user why saving configuration will not work.
@@ -161,14 +138,12 @@ public:
      *          object not being writable
      */
     virtual QString nonWritableErrorMessage() const = 0;
-
     /**
      * @return the read/write status of the configuration object
      *
      * @see KConfigBase::AccessMode
      */
     virtual KConfigBase::AccessMode accessMode() const = 0;
-
     /**
      * Create the enclosing object of the configuration object
      *
@@ -190,12 +165,10 @@ public:
      * Lock the file
      */
     virtual bool lock() = 0;
-
     /**
      * Release the lock on the file
      */
     virtual void unlock() = 0;
-
     /**
      * @return @c true if the file is locked, @c false if it is not locked
      */
@@ -220,7 +193,6 @@ public:
 
 protected:
     KConfigBackend();
-
     void setLocalFilePath(const QString &file);
 
 private:
@@ -228,15 +200,13 @@ private:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::ParseOptions)
-
 Q_DECLARE_OPERATORS_FOR_FLAGS(KConfigBackend::WriteOptions)
 
 #if 0 // TODO re-enable if the plugin loading code is re-enabled
 /**
  * Register a KConfig backend when it is contained in a loadable module
  */
-#define K_EXPORT_KCONFIGBACKEND(libname, classname) \
-    K_PLUGIN_FACTORY(factory, registerPlugin<classname>();)
+#define K_EXPORT_KCONFIGBACKEND(libname, classname) K_PLUGIN_FACTORY(factory, registerPlugin<classname>();)
 #endif
 
 #endif // KCONFIGBACKEND_H

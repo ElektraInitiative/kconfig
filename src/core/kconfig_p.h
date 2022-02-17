@@ -1,41 +1,29 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
-   Copyright (c) 2001 Waldo Bastian <bastian@kde.org>
-   Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-   Copyright (c) 1997 Matthias Kalle Dalheimer <kalle@kde.org>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2006, 2007 Thomas Braxton <kde.braxton@gmail.com>
+    SPDX-FileCopyrightText: 2001 Waldo Bastian <bastian@kde.org>
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997 Matthias Kalle Dalheimer <kalle@kde.org>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KCONFIG_P_H
 #define KCONFIG_P_H
 
-#include "kconfigdata.h"
 #include "kconfigbackend_p.h"
+#include "kconfigdata_p.h"
 #include "kconfiggroup.h"
 
-#include <QStringList>
-#include <QStack>
-#include <QFile>
 #include <QDir>
+#include <QFile>
+#include <QStack>
+#include <QStringList>
 
 class KConfigPrivate
 {
     friend class KConfig;
+
 public:
     KConfig::OpenFlags openFlags;
     QStandardPaths::StandardLocation resourceType;
@@ -48,19 +36,22 @@ public:
 
     // functions for KConfigGroup
     bool canWriteEntry(const QByteArray &group, const char *key, bool isDefault = false) const;
-    QString lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags,
-                       bool *expand) const;
+    QString lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags, bool *expand) const;
     QByteArray lookupData(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags) const;
+    KEntry lookupInternalEntry(const QByteArray &group, const char *key, KEntryMap::SearchFlags flags) const;
 
-    void putData(const QByteArray &group, const char *key, const QByteArray &value,
-                 KConfigBase::WriteConfigFlags flags, bool expand = false);
-    void revertEntry(const QByteArray &group, const char *key,
-                     KConfigBase::WriteConfigFlags flags);
+    void putData(const QByteArray &group, const char *key, const QByteArray &value, KConfigBase::WriteConfigFlags flags, bool expand = false);
+    void setEntryData(const QByteArray &group, const char *key, const QByteArray &value, KEntryMap::EntryOptions flags)
+    {
+        if (entryMap.setEntry(group, key, value, flags)) {
+            bDirty = true;
+        }
+    }
+    void revertEntry(const QByteArray &group, const char *key, KConfigBase::WriteConfigFlags flags);
     QStringList groupList(const QByteArray &group) const;
     // copies the entries from @p source to @p otherGroup changing all occurrences
     // of @p source with @p destination
-    void copyGroup(const QByteArray &source, const QByteArray &destination,
-                   KConfigGroup *otherGroup, KConfigBase::WriteConfigFlags flags) const;
+    void copyGroup(const QByteArray &source, const QByteArray &destination, KConfigGroup *otherGroup, KConfigBase::WriteConfigFlags flags) const;
     QStringList keyListImpl(const QByteArray &theGroup) const;
     QSet<QByteArray> allSubGroups(const QByteArray &parentGroup) const;
     bool hasNonDeletedEntries(const QByteArray &group) const;
@@ -72,20 +63,19 @@ public:
 protected:
     QExplicitlySharedDataPointer<KConfigBackend> mBackend;
 
-    KConfigPrivate(KConfig::OpenFlags flags,
-                   QStandardPaths::StandardLocation type);
+    KConfigPrivate(KConfig::OpenFlags flags, QStandardPaths::StandardLocation type);
 
     virtual ~KConfigPrivate()
     {
     }
 
-    bool bDynamicBackend: 1; // do we own the backend?
+    bool bDynamicBackend : 1; // do we own the backend?
 private:
-    bool bDirty: 1;
-    bool bReadDefaults: 1;
-    bool bFileImmutable: 1;
-    bool bForceGlobal: 1;
-    bool bSuppressGlobal: 1;
+    bool bDirty : 1;
+    bool bReadDefaults : 1;
+    bool bFileImmutable : 1;
+    bool bForceGlobal : 1;
+    bool bSuppressGlobal : 1;
 
     static bool mappingsRegistered;
 

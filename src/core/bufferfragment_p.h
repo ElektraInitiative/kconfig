@@ -1,21 +1,8 @@
 /*
-   This file is part of the KDE libraries
-   Copyright (c) 2008 Jakub Stachowski <qbast@go2.pl>
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2008 Jakub Stachowski <qbast@go2.pl>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef BUFFERFRAGMENT_H
@@ -37,14 +24,16 @@
 
 class KConfigIniBackend::BufferFragment
 {
-
 public:
-
-    BufferFragment() : d(nullptr), len(0)
+    BufferFragment()
+        : d(nullptr)
+        , len(0)
     {
     }
 
-    BufferFragment(char *buf, int size) : d(buf), len(size)
+    BufferFragment(char *buf, int size)
+        : d(buf)
+        , len(size)
     {
     }
 
@@ -77,11 +66,11 @@ public:
     void trim()
     {
         while (bf_isspace(*d) && len > 0) {
-            d++;
-            len--;
+            ++d;
+            --len;
         }
         while (len > 0 && bf_isspace(d[len - 1])) {
-            len--;
+            --len;
         }
     }
 
@@ -173,7 +162,7 @@ public:
             if (d[from] == c) {
                 return from;
             } else {
-                from--;
+                --from;
             }
         return -1;
     }
@@ -197,7 +186,7 @@ private:
 
 uint qHash(const KConfigIniBackend::BufferFragment fragment)
 {
-    const uchar *p = reinterpret_cast<const uchar*>(fragment.constData());
+    const uchar *p = reinterpret_cast<const uchar *>(fragment.constData());
     const int len = fragment.length();
 
     // This algorithm is copied from qhash.cpp (Qt5 version).

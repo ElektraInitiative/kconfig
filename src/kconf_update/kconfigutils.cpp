@@ -1,22 +1,9 @@
-/* This file is part of the KDE libraries
-   Copyright 2010 Canonical Ltd
-   Author: Aurélien Gâteau <aurelien.gateau@canonical.com>
+/*
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 2010 Canonical Ltd
+    SPDX-FileContributor: Aurélien Gâteau <aurelien.gateau@canonical.com>
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License (LGPL) as published by the Free Software Foundation;
-   either version 2 of the License, or (at your option) any later
-   version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 #include "kconfigutils.h"
 
@@ -26,7 +13,6 @@
 
 namespace KConfigUtils
 {
-
 bool hasGroup(KConfig *config, const QStringList &lst)
 {
     KConfigGroup group = openGroup(config, lst);
@@ -51,12 +37,12 @@ QStringList parseGroupString(const QString &_str, bool *ok, QString *error)
     }
 
     *ok = true;
-    if (str[0] != '[') {
+    if (!str.startsWith(QLatin1Char{'['})) {
         // Simplified notation, no '['
-        return QStringList() << str;
+        return QStringList{str};
     }
 
-    if (!str.endsWith(']')) {
+    if (!str.endsWith(QLatin1Char{']'})) {
         *ok = false;
         *error = QStringLiteral("Missing closing ']' in %1").arg(_str);
         return QStringList();
@@ -65,16 +51,16 @@ QStringList parseGroupString(const QString &_str, bool *ok, QString *error)
     str.chop(1);
     str.remove(0, 1);
 
-    return str.split(QStringLiteral("]["));
+    return str.split(QLatin1String{"]["});
 }
 
 QString unescapeString(const QString &src, bool *ok, QString *error)
 {
     QString dst;
-    int length = src.length();
+    const int length = src.length();
     for (int pos = 0; pos < length; ++pos) {
         QChar ch = src.at(pos);
-        if (ch != '\\') {
+        if (ch != QLatin1Char{'\\'}) {
             dst += ch;
         } else {
             ++pos;
@@ -83,22 +69,33 @@ QString unescapeString(const QString &src, bool *ok, QString *error)
                 *error = QStringLiteral("Unfinished escape sequence in %1").arg(src);
                 return QString();
             }
+
             ch = src.at(pos);
-            if (ch == 's') {
-                dst += ' ';
-            } else if (ch == 't') {
-                dst += '\t';
-            } else if (ch == 'n') {
-                dst += '\n';
-            } else if (ch == 'r') {
-                dst += '\r';
-            } else if (ch == '\\') {
-                dst += '\\';
-            } else if (ch == 'x') {
+            switch (ch.unicode()) {
+            case L's':
+                dst += QLatin1Char{' '};
+                break;
+            case L't':
+                dst += QLatin1Char{'\t'};
+                break;
+            case L'n':
+                dst += QLatin1Char{'\n'};
+                break;
+            case L'r':
+                dst += QLatin1Char{'\r'};
+                break;
+            case L'\\':
+                dst += QLatin1Char{'\\'};
+                break;
+            case L'x': {
                 if (pos + 2 < length) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                    char value = QStringView(src).mid(pos + 1, 2).toInt(ok, 16);
+#else
                     char value = src.midRef(pos + 1, 2).toInt(ok, 16);
+#endif
                     if (*ok) {
-                        dst += QChar::fromLatin1(value);
+                        dst += QLatin1Char{value};
                         pos += 2;
                     } else {
                         *error = QStringLiteral("Invalid hex escape sequence at column %1 in %2").arg(pos).arg(src);
@@ -109,10 +106,14 @@ QString unescapeString(const QString &src, bool *ok, QString *error)
                     *error = QStringLiteral("Unfinished hex escape sequence at column %1 in %2").arg(pos).arg(src);
                     return QString();
                 }
-            } else {
+
+                break;
+            }
+            default: {
                 *ok = false;
                 *error = QStringLiteral("Invalid escape sequence at column %1 in %2").arg(pos).arg(src);
                 return QString();
+            }
             }
         }
     }

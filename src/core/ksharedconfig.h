@@ -1,29 +1,16 @@
 /*
-  This file is part of the KDE libraries
-  Copyright (c) 1999 Preston Brown <pbrown@kde.org>
-  Copyright (C) 1997-1999 Matthias Kalle Dalheimer (kalle@kde.org)
+    This file is part of the KDE libraries
+    SPDX-FileCopyrightText: 1999 Preston Brown <pbrown@kde.org>
+    SPDX-FileCopyrightText: 1997-1999 Matthias Kalle Dalheimer <kalle@kde.org>
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
-
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
+    SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
 #ifndef KSHAREDCONFIG_H
 #define KSHAREDCONFIG_H
 
-#include <kconfig.h>
 #include <QExplicitlySharedDataPointer>
+#include <kconfig.h>
 
 /**
  * \class KSharedConfig ksharedconfig.h <KSharedConfig>
@@ -31,17 +18,17 @@
  * KConfig variant using shared memory
  *
  * KSharedConfig provides a shared (reference counted) variant
- * of KConfig.  This allows you to use manipulate the same configuration
+ * of KConfig. This allows you to use/manipulate the same configuration
  * files from different places in your code without worrying about
  * accidentally overwriting changes.
  *
  * The openConfig() method is threadsafe: every thread gets a separate repository
  * of shared KConfig objects. This means, however, that you'll be responsible for
  * synchronizing the instances of KConfig for the same filename between threads,
- * using reparseConfiguration after a manual change notification, just like you have
+ * using KConfig::reparseConfiguration() after a manual change notification, just like you have
  * to do between processes.
  */
-class KCONFIGCORE_EXPORT KSharedConfig : public KConfig, public QSharedData //krazy:exclude=dpointer (only for refcounting)
+class KCONFIGCORE_EXPORT KSharedConfig : public KConfig, public QSharedData // krazy:exclude=dpointer (only for refcounting)
 {
 public:
     typedef QExplicitlySharedDataPointer<KSharedConfig> Ptr;
@@ -71,9 +58,8 @@ public:
      *
      * @sa KConfig
      */
-    static KSharedConfig::Ptr openConfig(const QString &fileName = QString(),
-                                         OpenFlags mode = FullConfig,
-                                         QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
+    static KSharedConfig::Ptr
+    openConfig(const QString &fileName = QString(), OpenFlags mode = FullConfig, QStandardPaths::StandardLocation type = QStandardPaths::GenericConfigLocation);
 
     /**
      * Creates a KSharedConfig object to manipulate a configuration file suitable
@@ -104,14 +90,10 @@ private:
     KConfigGroup groupImpl(const QByteArray &aGroup) override;
     const KConfigGroup groupImpl(const QByteArray &aGroup) const override;
 
-    KSharedConfig(const QString &file, OpenFlags mode,
-                  QStandardPaths::StandardLocation resourceType);
-
+    KSharedConfig(const QString &file, OpenFlags mode, QStandardPaths::StandardLocation resourceType);
 #ifdef FEAT_ELEKTRA
-    KSharedConfig(MainConfigInformation configInformation, OpenFlags mode,
-                  QStandardPaths::StandardLocation resourceType);
+    KSharedConfig(MainConfigInformation configInformation, OpenFlags mode, QStandardPaths::StandardLocation resourceType);
 #endif
-
 };
 
 typedef KSharedConfig::Ptr KSharedConfigPtr;
